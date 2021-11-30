@@ -26,7 +26,7 @@ my_env = PipEnv(packages=["numpy", "flake8"], root=("/tmp"))
 
 When instantiated, enhancers can be called using the bash command as an argument.
 
-```
+```python
 rule lint_python:
     inputs: "some-script.py"
     shell:
@@ -36,7 +36,7 @@ rule lint_python:
 Some enhancers, such as `PipEnv`, provide multiple functions (e.g. `.script`, `.python`, etc) that provide slightly different functionality.
 Others, such as `Tar`, have methods that return a modified instance.
 
-```
+```python
 rule inspect_tarball:
     inputs: "some_archive.tar.gz"
     shell:
@@ -51,7 +51,7 @@ This leads us to step 3:
 Snakeboost packages a `pipe()` arg very similar to that provided by `PyToolz` (in fact, that's what we adapted it from).
 This lets us use a very clean syntax to specify multiple enhancers:
 
-```
+```python
 from snakeboost import pipe
 
 rule lint_tarred_scripts:
@@ -64,7 +64,7 @@ rule lint_tarred_scripts:
         )
 ```
 
-## The List
+## Available Enhancers
 
 ### `PipEnv`
 

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Utility functions to turbocharge your snakemake workflows. Virtualenvs, tarfiles, and more."
 authors = ["Peter Van Dyken <pvandyk2@uwo.ca>"]
 license = "MIT"
+readme = "README.md"
 keywords = ["snakemake", "workflow", "data science", "utility", "helpers"]
 classifiers = [
     "Development Status :: 3 - Alpha",
