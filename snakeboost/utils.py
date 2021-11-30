@@ -1,9 +1,34 @@
 from typing import NamedTuple, Tuple
 
+__all__ = ["pipe"]
+
+
 BashWrapper = NamedTuple(
     "BashWrapper",
     [("before", Tuple[str]), ("success", Tuple[str]), ("failure", Tuple[str])],
 )
+
+
+def pipe(*funcs, cmd):
+    """ Pipe a value through a sequence of functions
+
+    I.e. ``pipe(f, g, h, cmd)`` is equivalent to ``h(g(f(cmd)))``
+
+    We think of the value as progressing through a pipe of several
+    transformations, much like pipes in UNIX
+
+    ``$ cat data | f | g | h``
+
+    >>> double = lambda i: 2 * i
+    >>> pipe(3, double, str)
+    '6'
+
+    Adapted from [pytoolz implementation]\
+        (https://toolz.readthedocs.io/en/latest/_modules/toolz/functoolz.html#pipe)
+    """
+    for func in funcs:
+        cmd = func(cmd)
+    return cmd
 
 
 def quote_escape(text: str):
