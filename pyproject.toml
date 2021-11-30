@@ -4,6 +4,23 @@ version = "0.1.0"
 description = "Utility functions to turbocharge your snakemake workflows. Virtualenvs, tarfiles, and more."
 authors = ["Peter Van Dyken <pvandyk2@uwo.ca>"]
 license = "MIT"
+keywords = ["snakemake", "workflow", "data science", "utility", "helpers"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Utilities",
+    "Typing :: Typed"
+]
+packages = [
+    { include = "snakeboost" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.11"
