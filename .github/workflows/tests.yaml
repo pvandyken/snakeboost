@@ -53,13 +53,13 @@ jobs:
       #       run python style checks
       #----------------------------------------------
       - name: isort
-        run: poetry run isort snakebids -c
+        run: poetry run isort snakeboost -c
       - name: Black
-        run: poetry run black snakebids --check
+        run: poetry run black snakeboost --check
       - name: Flake8
-        run: poetry run flake8 snakebids
+        run: poetry run flake8 snakeboost
       - name: pylint
-        run: poetry run pylint snakebids
+        run: poetry run pylint snakeboost
 
       - name: Check __init__ files with mkinit
         # Cryptic code to check if check_mkinit returns only whitespace.
