@@ -1,4 +1,6 @@
 # noqa: E131
+from __future__ import absolute_import
+
 import itertools as it
 from pathlib import Path
 from typing import Iterable, List, Optional

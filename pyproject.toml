@@ -45,6 +45,13 @@ setup = "pre-commit install"
 mkinit = "mkinit --recursive --nomods --black -i snakeboost"
 check_mkinit = "mkinit --recursive --nomods --black --diff snakeboost"
 
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+add_imports = ["from __future__ import absolute_import"]
+# We ignore __init__ file so that mkinit and isort don't undo each other
+extend_skip = ["__init__.py"]
+
 [tool.pylint.master]
 ignore-patterns = "^[0-9][0-9]+_,^test_"
 
