@@ -1,5 +1,6 @@
 # noqa: E131
 import itertools as it
+from pathlib import Path
 from typing import Iterable, List, Optional
 
 import attr
@@ -13,10 +14,12 @@ from snakeboost.utils import (
 )
 
 
-# pylint: disable=too-few-public-methods
 @attr.frozen
 class Tar:
     """Functions to handle manipulation of .tar files in Snakemake
+
+    Supports the creation of new tarfile outputs, the modification of existing tarfiles,
+    and the opening of existing tar files as inputs.
 
     Attributes
     ----------
@@ -25,22 +28,25 @@ class Tar:
         a temporary directory
     """
 
-    root: bool
+    _root: Path = attr.ib(converter=Path)
+    inputs: Optional[List[str]] = None
+    outputs: Optional[List[str]] = None
+    modify: Optional[List[str]] = None
 
-    def __call__(
+    @property
+    def root(self):
+        return self._root / "__snakemake_tarfiles__"
+
+    def using(
         self,
-        cmd: str,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         modify: Optional[List[str]] = None,
     ):
-        """Modify shell script to manipulate .tar files as directories
+        """Set inputs, outputs, and modifies for tarring
 
-        Supports the creation of new tarfile outputs, the modification of existing
-        tarfiles, and the opening of existing tar files as inputs.
-
-        Can be used on wildcard inputs and outputs using "{input.foo}" or similar, but
-        any arbitrary path can be used, e.g. "{params.atlas}".
+        Use wildcard inputs and outputs using "{input.foo}" or similar, or any arbitrary
+        path, e.g. "{params.atlas}".
 
         Inputs: Extracts tar file inputs into a directory of your choice. The tar file
         is renamed (with a `.swap` suffix) and a symlink of the same name as the tarfile
@@ -61,14 +67,27 @@ class Tar:
 
         Parameters
         ----------
-        cmd : str
-            Command to run
-        inputs : List[str, optional
+        inputs : List[str], optional
             List of inputs. Use "{input.foo}" for wildcard paths. By default None
         outputs : List[str], optional
             List of outputs. Use "{output.foo}" for wildcard paths. By default None
         modify : List[str], optional
             List of files to modify. By default None
+
+        Returns
+        -------
+        Tar
+            A fresh Tar instance with the update inputs, outputs, and modifies
+        """
+        return self.__class__(self._root, inputs, outputs, modify)
+
+    def __call__(self, cmd: str):
+        """Modify shell script to manipulate .tar files as directories
+
+        Parameters
+        ----------
+        cmd : str
+            Command to run
 
         Returns
         -------
@@ -84,21 +103,20 @@ class Tar:
                             _close_tar(src),
                             "",
                         )
-                        for src in inputs
+                        for src in self.inputs  # pylint: disable=not-an-iterable
                     )
                 )
             )
-            if inputs
+            if self.inputs
             else BashWrapper(tuple(), tuple(), tuple())
         )
 
-        output_scripts = (
-            BashWrapper(
-                *zip(
-                    *(
-                        (
-                            f"( [[ ! -e {_stowed(dest)} ]] || ("
-                            "echo "
+        # fmt: off
+        output_scripts = (BashWrapper(*zip(
+            *(
+                (
+                    f"( [[ ! -e {_stowed(dest)} ]] || ("
+                        "echo "
                             '"Found stashed tar file: '
                             f"'{_stowed(dest)}' "
                             "while atempting to generate the output: "
@@ -120,10 +138,13 @@ class Tar:
                         if ((tmpdir := f"{self.root}/{hash_path(dest)}"))
                     )
                 )
-            )
-            if outputs
+                for dest in self.outputs  # pylint: disable=not-an-iterable
+                if ((tmpdir := f"{self.root}/{hash_path(dest)}"))
+            )))
+            if self.outputs
             else BashWrapper(tuple(), tuple(), tuple())
         )
+        # fmt: on
 
         modify_scripts = (
             BashWrapper(
@@ -134,12 +155,12 @@ class Tar:
                             f"{_save_tar(tar, tmpdir)}",
                             _close_tar(tar),
                         )
-                        for tar in modify
+                        for tar in self.modify  # pylint: disable=not-an-iterable
                         if ((tmpdir := f"{self.root}/{hash_path(tar)}"))
                     )
                 )
             )
-            if modify
+            if self.modify
             else BashWrapper(tuple(), tuple(), tuple())
         )
 
@@ -159,6 +180,8 @@ def _join_commands(commands: Iterable[str]):
 
 def _open_tar(tarfile: str, mount: str):
     stowed = _stowed(tarfile)
+
+    # fmt: off
     return (
         f"([[ -d {mount} ]] && ( "
         f"[[ -e {stowed} ]] || {silent_mv(tarfile, stowed)}"
@@ -176,6 +199,7 @@ def _open_tar(tarfile: str, mount: str):
         ")) && "
         f"ln -s {mount} {tarfile} && {cp_timestamp(stowed, tarfile)}"
     )
+    # fmt: on
 
 
 def _close_tar(tarfile: str):
