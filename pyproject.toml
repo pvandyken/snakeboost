@@ -22,16 +22,19 @@ pylint = "^2.11.1"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poe.tasks]
+setup = "pre-commit install"
+mkinit = "mkinit --recursive --nomods --black -i snakeboost"
+check_mkinit = "mkinit --recursive --nomods --black --diff snakeboost"
+
 [tool.pylint.master]
 ignore-patterns = "^[0-9][0-9]+_,^test_"
 
 [tool.pylint.format]
-good-names = "i,j,k,ex,_,x,y,f,d"
+good-names = "i,j,k,ex,_,x,y,f,d,s"
 
 [tool.pylint.messages_control]
 disable = """
     missing-function-docstring,
     missing-module-docstring,
-    fixme,
-    too-few-
 """
