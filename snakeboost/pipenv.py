@@ -3,6 +3,9 @@ import itertools as it
 from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
+__all__ = ["PipEnv"]
+
+
 PYTHON_VENV_CREATE_ERR = "[ERROR] (jobid={jobid}): Error creating python environment"
 TIMED_OUT_ERR = "[ERROR] (jobid={jobid}): Script timed out when waiting for Python"
 
@@ -124,7 +127,10 @@ class PipEnv:
 
         Prepends the path of the python executable to the shell script. This can be used
         to run a python file (with a fully resolved path) or a python module (using the
-        `-m` flag)
+        `-m` flag).
+
+        When using multiple enhancers, this must ALWAYS be the last one before the
+        command.
 
         Parameters
         ----------
@@ -144,6 +150,9 @@ class PipEnv:
         This appends the path of the venv /bin directory to the shell script. The very
         first item in the script should thus be the name of an executable python script
         installed in the /bin dir.
+
+        When using multiple enhancers, this must ALWAYS be the last one before the
+        command.
 
         Parameters
         ----------
