@@ -166,11 +166,16 @@ class Tar:
 
         before, success, failure = zip(input_scripts, output_scripts, modify_scripts)
 
-        return (
-            f"{_join_commands(it.chain(*before))} && "
-            f"{cmd} && "
-            f"{_join_commands(it.chain(*success))} || "
-            f"({_join_commands(it.chain(*failure))} && exit 1)"
+        # pylint: disable=used-before-assignment
+        return "".join(
+            [
+                f"{_join_commands(it.chain(*before))} && ",
+                cmd,
+                f" && {s} " if (s := _join_commands(it.chain(*success))) else "",
+                f" || ({s} && exit 1)"
+                if (s := _join_commands(it.chain(*failure)))
+                else "",
+            ]
         )
 
 
