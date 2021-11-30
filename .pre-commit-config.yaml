@@ -15,6 +15,7 @@ repos:
         name: isort
         language: system
         types_or: [cython, pyi, python]
+        exclude: ".*__init__.py"
   - repo: local
     hooks:
       - id: black
