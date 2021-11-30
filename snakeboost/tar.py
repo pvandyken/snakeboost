@@ -13,6 +13,17 @@ from snakeboost.utils import (
     silent_mv,
 )
 
+__all__ = ["Tar"]
+
+DEBUG = False
+
+if DEBUG:
+    AND = "&&\n"
+    OR = "||\n"
+else:
+    AND = "&&"
+    OR = "||"
+
 
 @attr.frozen
 class Tar:
@@ -125,18 +136,14 @@ class Tar:
                             "its extension back to .tar.gz. If this file should not "
                             "have been processed, you may with to run `snakemake "
                             '--touch` to enforce correct timestamps for files" && '
-                            "false"
-                            ")) && "
-                            f"{rm_if_exists(dest)} && "
-                            f"{rm_if_exists(tmpdir, True)} && "
-                            f"mkdir -p {tmpdir} && "
-                            f"ln -s {tmpdir} {dest}",
-                            f"{_save_tar(dest, tmpdir)}",
-                            "",
-                        )
-                        for dest in outputs
-                        if ((tmpdir := f"{self.root}/{hash_path(dest)}"))
-                    )
+                        "false"
+                    f")) {AND}"
+                    f"{rm_if_exists(dest)} {AND} "
+                    f"{rm_if_exists(tmpdir, True)} {AND} "
+                    f"mkdir -p {tmpdir} {AND} "
+                    f"ln -s {tmpdir} {dest}",
+                    f"{_save_tar(dest, tmpdir)}",
+                    "",
                 )
                 for dest in self.outputs  # pylint: disable=not-an-iterable
                 if ((tmpdir := f"{self.root}/{hash_path(dest)}"))
@@ -169,10 +176,10 @@ class Tar:
         # pylint: disable=used-before-assignment
         return "".join(
             [
-                f"{_join_commands(it.chain(*before))} && ",
+                f"{_join_commands(it.chain(*before))} {AND} ",
                 cmd,
-                f" && {s} " if (s := _join_commands(it.chain(*success))) else "",
-                f" || ({s} && exit 1)"
+                f" {AND} {s} " if (s := _join_commands(it.chain(*success))) else "",
+                f" {OR} ({s} && exit 1)"
                 if (s := _join_commands(it.chain(*failure)))
                 else "",
             ]
@@ -180,7 +187,7 @@ class Tar:
 
 
 def _join_commands(commands: Iterable[str]):
-    return " && ".join(filter(None, commands))
+    return f" {AND} ".join(filter(None, commands))
 
 
 def _open_tar(tarfile: str, mount: str):
@@ -188,34 +195,34 @@ def _open_tar(tarfile: str, mount: str):
 
     # fmt: off
     return (
-        f"([[ -d {mount} ]] && ( "
-        f"[[ -e {stowed} ]] || {silent_mv(tarfile, stowed)}"
-        ") || ("
-        f"mkdir -p {mount} && "
-        f"([[ -e {stowed} ]] && ("
-        f"echo \"Found stowed tarfile: '{stowed}''. Extracting...\" && "
-        f"tar -xzf {stowed} -C {mount} && "
-        f"{rm_if_exists(tarfile)}"
-        ") || ("
-        f"echo \"Extracting and stowing tarfile: '{tarfile}'\" && "
-        f"tar -xzf {tarfile} -C {mount} && "
-        f"{silent_mv(tarfile, stowed)} "
-        "))"
-        ")) && "
-        f"ln -s {mount} {tarfile} && {cp_timestamp(stowed, tarfile)}"
+        f"([[ -d {mount} ]] {AND} ("
+            f"[[ -e {stowed} ]] || {silent_mv(tarfile, stowed)}"
+        f") {OR} ("
+            f"mkdir -p {mount} {AND} "
+            f"([[ -e {stowed} ]] {AND} ("
+                f"echo \"Found stowed tarfile: '{stowed}''. Extracting...\" {AND} "
+                f"tar -xzf {stowed} -C {mount} {AND} "
+                f"{rm_if_exists(tarfile)}"
+            f") {OR} ("
+            f"echo \"Extracting and stowing tarfile: '{tarfile}'\" {AND} "
+            f"tar -xzf {tarfile} -C {mount} {AND} "
+            f"{silent_mv(tarfile, stowed)} "
+            "))"
+        f")) {AND} "
+        f"ln -s {mount} {tarfile} {AND} {cp_timestamp(stowed, tarfile)}"
     )
     # fmt: on
 
 
 def _close_tar(tarfile: str):
-    return f"rm {tarfile} && {silent_mv(_stowed(tarfile), tarfile)}"
+    return f"rm {tarfile} {AND} {silent_mv(_stowed(tarfile), tarfile)}"
 
 
 def _save_tar(tarfile: str, mount: str):
     return (
-        f"rm {tarfile} && "
-        f'echo "Packing tar file: {tarfile}" && '
-        f"tar -czf {tarfile} -C {mount} . && "
+        f"rm {tarfile} {AND} "
+        f'echo "Packing tar file: {tarfile}" {AND} '
+        f"tar -czf {tarfile} -C {mount} . {AND} "
         f"{rm_if_exists(_stowed(tarfile))}"
     )
 
