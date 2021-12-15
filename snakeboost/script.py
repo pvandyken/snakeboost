@@ -25,6 +25,11 @@ def pyscript(
     resources: List[str] = None,
     log: List[str] = None,
 ):
+    if not Path(script).exists():
+        raise FileExistsError(
+            f"Could not find script: {script}\n"
+            "Be sure to define paths relative to the app root, not the workflow root."
+        )
     if env is None:
         executable = "python"
     else:
