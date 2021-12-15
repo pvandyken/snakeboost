@@ -25,8 +25,8 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.11"
-attr = "^0.3.1"
 Pygments = "^2.10.0"
+attrs = "^21.2.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
