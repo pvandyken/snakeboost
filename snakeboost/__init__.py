@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
-__submodules__ = ["tar", "pipenv", "xvfb", "utils"]
+__submodules__ = ["tar", "pipenv", "xvfb", "utils", "script"]
+
+__ignore__ = ["T"]
 
 # <AUTOGEN_INIT>
 from snakeboost.tar import (
@@ -15,7 +17,26 @@ from snakeboost.xvfb import (
 from snakeboost.utils import (
     pipe,
 )
+from snakeboost.script import (
+    ParseError,
+    SnakemakeArgs,
+    SnakemakeSequenceArg,
+    pyscript,
+    snakemake_args,
+    snakemake_parser,
+)
 
-__all__ = ["PipEnv", "Tar", "XvfbRun", "pipe"]
+__all__ = [
+    "ParseError",
+    "PipEnv",
+    "SnakemakeArgs",
+    "SnakemakeSequenceArg",
+    "Tar",
+    "XvfbRun",
+    "pipe",
+    "pyscript",
+    "snakemake_args",
+    "snakemake_parser",
+]
 
 # </AUTOGEN_INIT>
