@@ -23,7 +23,7 @@ from snakeboost.script import (
         (
             "foo",
             ["one", "two", "moose"],
-            "--test one={test.one} two={test.two} moose={test.moose}",
+            "--foo one={foo.one} two={foo.two} moose={foo.moose}",
         ),
     ),
 )
@@ -31,14 +31,18 @@ def test_get_arg(arg, value, result):
     assert _get_arg(arg, value) == result
 
 
-def test_pyscript():
+def test_pyscript(tmp_path: Path):
+    script = tmp_path / "hello_world.py"
+    print(script)
+    script.touch()
     assert pyscript(
-        "hello_world.py",
+        str(script),
         input=["one", "two"],
         output=["foo"],
         wildcards=["subject", "verb", "adjective"],
     ) == (
-        "python hello_world.py --input one={input.one} two={input.two} --output "
+        f"python {script} "
+        "--input one={input.one} two={input.two} --output "
         "foo={output.foo} --params {params} --wildcards subject={wildcards.subject} "
         "verb={wildcards.verb} adjective={wildcards.adjective} --resources {resources} "
         "--log {log} --threads {threads}"
@@ -47,14 +51,14 @@ def test_pyscript():
     venv = PipEnv("/tmp", packages=["black"])
 
     assert pyscript(
-        "hello_world.py",
+        str(script),
         venv,
         input=["one", "two"],
         output=["foo"],
         wildcards=["subject", "verb", "adjective"],
     ) == (
-        f"{venv.get_venv} && {venv.python_path} "
-        "hello_world.py --input one={input.one} two={input.two} --output "
+        f"{venv.get_venv} && {venv.python_path} {script} "
+        "--input one={input.one} two={input.two} --output "
         "foo={output.foo} --params {params} --wildcards subject={wildcards.subject} "
         "verb={wildcards.verb} adjective={wildcards.adjective} --resources {resources} "
         "--log {log} --threads {threads}"
@@ -76,7 +80,7 @@ def test_pyscript():
     ),
 )
 def test_parse_snakemake_arg(converter, values, result):
-    assert _parse_snakemake_arg(converter)(values) == result
+    assert _parse_snakemake_arg(converter, values) == result
 
 
 def test_SnakemakeArgs():

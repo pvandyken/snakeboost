@@ -19,9 +19,11 @@ from snakeboost.utils import (
 )
 from snakeboost.script import (
     ParseError,
+    Pyscript,
+    PyscriptParam,
+    ScriptDict,
     SnakemakeArgs,
     SnakemakeSequenceArg,
-    pyscript,
     snakemake_args,
     snakemake_parser,
 )
@@ -29,12 +31,14 @@ from snakeboost.script import (
 __all__ = [
     "ParseError",
     "PipEnv",
+    "Pyscript",
+    "PyscriptParam",
+    "ScriptDict",
     "SnakemakeArgs",
     "SnakemakeSequenceArg",
     "Tar",
     "XvfbRun",
     "pipe",
-    "pyscript",
     "snakemake_args",
     "snakemake_parser",
 ]

@@ -2,53 +2,110 @@ from __future__ import absolute_import
 
 import argparse
 import re
+from collections import UserDict
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Optional, TypeVar, Union
+
+import attr
 
 from snakeboost.pipenv import PipEnv
 
 
-def _get_arg(arg: str, value: Optional[List[str]]):
+def _mapping(arg: str, values: Iterable[str]):
+    return " ".join([f"{v}={{{arg}.{v}}}" for v in values])
+
+
+# pylint: disable=missing-class-docstring
+class ScriptDict(UserDict):
+    def cli_mapping(self, arg: str):
+        return _mapping(arg, self.keys())
+
+
+PyscriptParam = Union[List[str], ScriptDict]
+
+
+def _get_arg(arg: str, value: Optional[PyscriptParam]):
     if value is None:
         return f"--{arg} {{{arg}}}"
-    return f"--{arg} " + " ".join([f"{v}={{{arg}.{v}}}" for v in value])
+    if isinstance(value, ScriptDict):
+        return f"--{arg} {value.cli_mapping(arg)}"
+    return f"--{arg} " + _mapping(arg, value)
 
 
-# pylint: disable=too-many-arguments, redefined-builtin, missing-class-docstring
-def pyscript(
-    script: str,
-    env: PipEnv = None,
-    input: List[str] = None,
-    output: List[str] = None,
-    params: List[str] = None,
-    wildcards: List[str] = None,
-    resources: List[str] = None,
-    log: List[str] = None,
-):
-    if not Path(script).exists():
-        raise FileExistsError(
-            f"Could not find script: {script}\n"
-            "Be sure to define paths relative to the app root, not the workflow root."
+# pylint: disable=redefined-builtin, missing-class-docstring
+# pylint: disable=attribute-defined-outside-init
+@attr.define(slots=False)
+class Pyscript:
+    env: Optional[PipEnv] = None
+
+    def __attrs_post_init__(self):
+        self._input = None
+        self._output = None
+        self._params = None
+        self._resources = None
+        self._wildcards = None
+        self._log = None
+
+    def input(self, **kwargs):
+        self._input = ScriptDict(**kwargs)
+        return kwargs
+
+    def output(self, **kwargs):
+        self._output = ScriptDict(**kwargs)
+        return kwargs
+
+    def params(self, **kwargs):
+        self._params = ScriptDict(**kwargs)
+        return kwargs
+
+    def resources(self, **kwargs):
+        self._resources = ScriptDict(**kwargs)
+        return kwargs
+
+    def wildcards(self, **kwargs):
+        self._wildcards = ScriptDict(**kwargs)
+        return kwargs
+
+    def log(self, **kwargs):
+        self._log = ScriptDict(**kwargs)
+        return kwargs
+
+    # pylint: disable=too-many-arguments
+    def __call__(
+        self,
+        script: str,
+        input: PyscriptParam = None,
+        output: PyscriptParam = None,
+        params: PyscriptParam = None,
+        wildcards: PyscriptParam = None,
+        resources: PyscriptParam = None,
+        log: PyscriptParam = None,
+    ):
+        if not Path(script).exists():
+            raise FileExistsError(
+                f"Could not find script: {script}\n"
+                "Be sure to define paths relative to the app root, not the workflow "
+                "root."
+            )
+        if self.env is None:
+            executable = "python"
+        else:
+            executable = f"{self.env.get_venv} && {self.env.python_path}"
+        args = " ".join(
+            [
+                _get_arg(arg, value)
+                for arg, value in {
+                    "input": input if input else self._input,
+                    "output": output if output else self._output,
+                    "params": params if params else self._params,
+                    "wildcards": wildcards if wildcards else self._wildcards,
+                    "resources": resources if resources else self._resources,
+                    "log": log if log else self._log,
+                }.items()
+            ]
         )
-    if env is None:
-        executable = "python"
-    else:
-        executable = f"{env.get_venv} && {env.python_path}"
-    args = " ".join(
-        [
-            _get_arg(arg, value)
-            for arg, value in {
-                "input": input,
-                "output": output,
-                "params": params,
-                "wildcards": wildcards,
-                "resources": resources,
-                "log": log,
-            }.items()
-        ]
-    )
 
-    return f"{executable} {script} {args} --threads {{threads}}"
+        return f"{executable} {script} {args} --threads {{threads}}"
 
 
 class ParseError(Exception):
@@ -116,9 +173,9 @@ def snakemake_parser():
     parser.add_argument("--output", nargs="*", default=[])
     parser.add_argument("--params", nargs="*", default=[])
     parser.add_argument("--wildcards", nargs="*", default=[])
-    parser.add_argument("--threads", nargs="?", default="")
+    parser.add_argument("--threads", nargs="?", default="", const="")
     parser.add_argument("--resources", nargs="*", default=[])
-    parser.add_argument("--log", nargs="?", default="")
+    parser.add_argument("--log", nargs="?", default="", const="")
     return parser
 
 
