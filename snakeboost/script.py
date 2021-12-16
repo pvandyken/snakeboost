@@ -173,7 +173,7 @@ def snakemake_parser():
     parser.add_argument("--output", nargs="*", default=[])
     parser.add_argument("--params", nargs="*", default=[])
     parser.add_argument("--wildcards", nargs="*", default=[])
-    parser.add_argument("--threads", nargs="?", default="", const="")
+    parser.add_argument("--threads", nargs="?", default=0, const=0)
     parser.add_argument("--resources", nargs="*", default=[])
     parser.add_argument("--log", nargs="?", default="", const="")
     return parser
