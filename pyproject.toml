@@ -24,9 +24,10 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8, <3.11"
+python = ">=3.7, <3.11"
 Pygments = "^2.10.0"
 attrs = "^21.2.0"
+colorama = "^0.4.4"
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
