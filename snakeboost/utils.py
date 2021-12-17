@@ -11,7 +11,7 @@ BashWrapper = NamedTuple(
 )
 
 
-def pipe(*funcs, cmd):
+def pipe(*funcs_and_cmd):
     """ Pipe a value through a sequence of functions
 
     I.e. ``pipe(f, g, h, cmd)`` is equivalent to ``h(g(f(cmd)))``
@@ -28,7 +28,8 @@ def pipe(*funcs, cmd):
     Adapted from [pytoolz implementation]\
         (https://toolz.readthedocs.io/en/latest/_modules/toolz/functoolz.html#pipe)
     """
-    for func in funcs:
+    cmd = funcs_and_cmd[-1]
+    for func in funcs_and_cmd[:-1]:
         cmd = func(cmd)
     return cmd
 
