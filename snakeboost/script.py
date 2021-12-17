@@ -36,6 +36,7 @@ def _get_arg(arg: str, value: Optional[PyscriptParam]):
 # pylint: disable=attribute-defined-outside-init
 @attr.define(slots=False)
 class Pyscript:
+    snakefile_dir: Path = attr.ib(converter=Path)
     env: Optional[PipEnv] = None
 
     def __attrs_post_init__(self):
@@ -81,7 +82,9 @@ class Pyscript:
         resources: PyscriptParam = None,
         log: PyscriptParam = None,
     ):
-        if not Path(script).exists():
+        resolved_script = (self.snakefile_dir / script).resolve()
+
+        if not Path(resolved_script).exists():
             raise FileExistsError(
                 f"Could not find script: {script}\n"
                 "Be sure to define paths relative to the app root, not the workflow "
@@ -105,7 +108,7 @@ class Pyscript:
             ]
         )
 
-        return f"{executable} {script} {args} --threads {{threads}}"
+        return f"{executable} {resolved_script} {args} --threads {{threads}}"
 
 
 class ParseError(Exception):
