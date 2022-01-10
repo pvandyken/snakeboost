@@ -119,7 +119,7 @@ class PipEnv:
             f"virtualenv --no-download {self.venv} && "
             f"{install_cmd}"
             ") || ("
-            f"echo '\"'\"'{PYTHON_VENV_CREATE_ERR}'\"'\"' 1>&2 && exit 1"
+            f"echo '\"'\"'{PYTHON_VENV_CREATE_ERR}'\"'\"' 1>&2 && false"
             f")' | flock -w 900 {self._dir} bash "
             ")"
         )
