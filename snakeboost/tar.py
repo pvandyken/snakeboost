@@ -144,7 +144,9 @@ class Tar:
                     f"{rm_if_exists(tmpdir, True)} {AND} "
                     f"mkdir -p {tmpdir} {AND} "
                     f"ln -s {tmpdir} {dest}",
+
                     f"{_save_tar(dest, tmpdir)}",
+
                     "",
                 )
                 for dest in self.outputs  # pylint: disable=not-an-iterable
@@ -198,7 +200,11 @@ def _open_tar(tarfile: str, mount: str):
     # fmt: off
     return (
         f"([[ -d {mount} ]] {AND} ("
-            f"[[ -e {stowed} ]] || {silent_mv(tarfile, stowed)}"
+            f"[[ -e {stowed} ]] {AND} ("
+                f"{rm_if_exists(tarfile)}"
+            f") {OR} ("
+                f"{silent_mv(tarfile, stowed)}"
+            ")"
         f") {OR} ("
             f"mkdir -p {mount} {AND} "
             f"([[ -e {stowed} ]] {AND} ("
@@ -206,9 +212,9 @@ def _open_tar(tarfile: str, mount: str):
                 f"tar -xzf {stowed} -C {mount} {AND} "
                 f"{rm_if_exists(tarfile)}"
             f") {OR} ("
-            f"echo \"Extracting and stowing tarfile: '{tarfile}'\" {AND} "
-            f"tar -xzf {tarfile} -C {mount} {AND} "
-            f"{silent_mv(tarfile, stowed)} "
+                f"echo \"Extracting and stowing tarfile: '{tarfile}'\" {AND} "
+                f"tar -xzf {tarfile} -C {mount} {AND} "
+                f"{silent_mv(tarfile, stowed)} "
             "))"
         f")) {AND} "
         f"ln -s {mount} {tarfile} {AND} {cp_timestamp(stowed, tarfile)}"
@@ -230,4 +236,4 @@ def _save_tar(tarfile: str, mount: str):
 
 
 def _stowed(tarfile: str):
-    return tarfile + ".__swap"
+    return tarfile + ".swp"
