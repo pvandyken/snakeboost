@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "snakeboost"
-version = "0.1.1"
+version = "0.2.0"
 description = "Utility functions to turbocharge your snakemake workflows. Virtualenvs, tarfiles, and more."
 authors = ["Peter Van Dyken <pvandyk2@uwo.ca>"]
 license = "MIT"
