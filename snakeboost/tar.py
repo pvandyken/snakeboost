@@ -114,7 +114,7 @@ class Tar:
                         (
                             _open_tar(src, f"{self.root}/{hash_path(src)}"),
                             _close_tar(src),
-                            "",
+                            _close_tar(src),
                         )
                         for src in self.inputs  # pylint: disable=not-an-iterable
                     )
@@ -128,7 +128,7 @@ class Tar:
         output_scripts = (BashWrapper(*zip(
             *(
                 (
-                    f"( [[ ! -e {_stowed(dest)} ]] || ("
+                    f"( [ ! -e {_stowed(dest)} ] || ("
                         "echo "
                             '"Found stashed tar file: '
                             f"'{_stowed(dest)}' "
@@ -136,8 +136,8 @@ class Tar:
                             f"'{dest}' "
                             "Please rename this file, remove it, or manually change "
                             "its extension back to .tar.gz. If this file should not "
-                            "have been processed, you may with to run `snakemake "
-                            '--touch` to enforce correct timestamps for files" && '
+                            "have been processed, you may with to run ``snakemake "
+                            '--touch`` to enforce correct timestamps for files" && '
                         "false"
                     f")) {AND}"
                     f"{rm_if_exists(dest)} {AND} "
@@ -199,15 +199,15 @@ def _open_tar(tarfile: str, mount: str):
 
     # fmt: off
     return (
-        f"([[ -d {mount} ]] {AND} ("
-            f"[[ -e {stowed} ]] {AND} ("
+        f"([ -d {mount} ] {AND} ("
+            f"[ -e {stowed} ] {AND} ("
                 f"{rm_if_exists(tarfile)}"
             f") {OR} ("
                 f"{silent_mv(tarfile, stowed)}"
             ")"
         f") {OR} ("
             f"mkdir -p {mount} {AND} "
-            f"([[ -e {stowed} ]] {AND} ("
+            f"([ -e {stowed} ] {AND} ("
                 f"echo \"Found stowed tarfile: '{stowed}''. Extracting...\" {AND} "
                 f"tar -xzf {stowed} -C {mount} {AND} "
                 f"{rm_if_exists(tarfile)}"
