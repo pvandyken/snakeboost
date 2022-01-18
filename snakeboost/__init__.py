@@ -3,7 +3,7 @@ import sys
 
 from colorama import Fore
 
-__submodules__ = ["pipenv", "xvfb", "script"]
+__submodules__ = ["pipenv", "xvfb", "script", "boost", "datalad"]
 
 __ignore__ = ["T"]
 
@@ -24,8 +24,16 @@ from snakeboost.script import (
     snakemake_args,
     snakemake_parser,
 )
+from snakeboost.boost import (
+    Boost,
+)
+from snakeboost.datalad import (
+    Datalad,
+)
 
 __all__ = [
+    "Boost",
+    "Datalad",
     "ParseError",
     "PipEnv",
     "Pyscript",
