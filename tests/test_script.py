@@ -7,10 +7,10 @@ import pytest
 
 from snakeboost.pipenv import PipEnv
 from snakeboost.script import (
+    Pyscript,
     SnakemakeArgs,
     _get_arg,
     _parse_snakemake_arg,
-    pyscript,
     snakemake_args,
 )
 
@@ -35,7 +35,7 @@ def test_pyscript(tmp_path: Path):
     script = tmp_path / "hello_world.py"
     print(script)
     script.touch()
-    assert pyscript(
+    assert Pyscript(
         str(script),
         input=["one", "two"],
         output=["foo"],
@@ -50,7 +50,7 @@ def test_pyscript(tmp_path: Path):
 
     venv = PipEnv("/tmp", packages=["black"])
 
-    assert pyscript(
+    assert Pyscript(
         str(script),
         venv,
         input=["one", "two"],

@@ -1,9 +1,10 @@
+# pylint: disable=missing-class-docstring, invalid-name
 from __future__ import absolute_import
 
-from typing import NamedTuple, Tuple
+import hashlib
+from typing import NamedTuple, Tuple, Union
 
-__all__ = ["pipe"]
-
+from snakeboost.sh_cmd import ShCmd, ShPipe, ShVar, StringLike
 
 BashWrapper = NamedTuple(
     "BashWrapper",
@@ -11,27 +12,45 @@ BashWrapper = NamedTuple(
 )
 
 
-def pipe(*funcs_and_cmd):
-    """ Pipe a value through a sequence of functions
+class ShIfBody:
+    def __init__(self, expr: Union[StringLike, ShCmd]):
+        self.expr = expr
 
-    I.e. ``pipe(f, g, h, cmd)`` is equivalent to ``h(g(f(cmd)))``
+    def __str__(self):
+        raise Exception("Cannot turn ShIf directly into string. Call `.fi()` instead")
 
-    We think of the value as progressing through a pipe of several
-    transformations, much like pipes in UNIX
+    def fi(self):
+        return f"{self.expr}; fi"
 
-    ``$ cat data | f | g | h``
 
-    >>> double = lambda i: 2 * i
-    >>> pipe(3, double, str)
-    '6'
+class ShIf:
+    def __init__(self, expr: Union[StringLike, ShCmd]):
+        if isinstance(expr, ShCmd):
+            self.expr = subsh(expr)
+        else:
+            self.expr = expr
 
-    Adapted from [pytoolz implementation]\
-        (https://toolz.readthedocs.io/en/latest/_modules/toolz/functoolz.html#pipe)
-    """
-    cmd = funcs_and_cmd[-1]
-    for func in funcs_and_cmd[:-1]:
-        cmd = func(cmd)
-    return cmd
+    def __str__(self):
+        return f"[ {self.expr} ]"
+
+    def then(self, cmd: str):
+        cmd = cmd.strip()
+        if cmd[-1] == ";":
+            cmd = cmd[:-1]
+        return ShIfBody(f"if [ {self.expr} ]; then {cmd}")
+
+    def gt(self, expr: Union[StringLike, int]):
+        return self.__class__(f"{self.expr} -gt {expr}")
+
+
+def subsh(cmd: Union[str, ShCmd, ShPipe]):
+    return f"$({cmd})"
+
+
+def sh_for(var: StringLike, _in: StringLike, do: StringLike):
+    if isinstance(var, ShVar):
+        return f"for {var.name} in {_in}; do {do}; done"
+    return f"for {var} in {_in}; do {do}; done"
 
 
 def quote_escape(text: str):
@@ -62,4 +81,63 @@ def rm_if_exists(path: str, recursive: bool = False):
         flag = "-rf"
     else:
         flag = ""
-    return f"( [[ ! -e {path} ]] || rm {flag} {path} )"
+    return f"( [ ! -e {path} ] || rm {flag} {path} )"
+
+
+def split(text: str):
+    return subsh(f"echo {text}")
+
+
+def resolve(path: StringLike):
+    return subsh(f"realpath -s {path}")
+
+
+def get_hash(items: str):
+    encoded = items.encode("utf-8")
+    return hashlib.md5(encoded).hexdigest()
+
+
+def escaped(text: str, char_pos: int):
+    return char_pos > 0 and text[char_pos - 1] == "\\"
+
+
+# pylint: disable=too-many-branches
+def within_quotes(text: str, curr: int = 0) -> int:
+    double = text.index('"') if '"' in text else len(text)
+    single = text.index("'") if "'" in text else len(text)
+    if double == len(text) and single == len(text):
+        return curr
+
+    if curr == 0:
+        if double < single:
+            if escaped(text, double):
+                result = 0
+            else:
+                result = -1
+        else:
+            if escaped(text, single):
+                result = 0
+            else:
+                result = 1
+
+    elif curr == -1:
+        if double < single:
+            if escaped(text, double):
+                result = -1
+            else:
+                result = 0
+
+        # Don't worry about escaping single quote within double quote
+        else:
+            result = -1
+    else:
+        if double < single:
+            result = 1
+        # Can't escape single quote within single quotes
+        else:
+            result = 0
+
+    tail = (double if double < single else single) + 1
+    if tail == len(text):
+        return result
+    return within_quotes(text[tail:], result)

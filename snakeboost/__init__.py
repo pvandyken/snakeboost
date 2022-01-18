@@ -3,7 +3,7 @@ import sys
 
 from colorama import Fore
 
-__submodules__ = ["pipenv", "xvfb", "utils", "script"]
+__submodules__ = ["pipenv", "xvfb", "script"]
 
 __ignore__ = ["T"]
 
@@ -13,9 +13,6 @@ from snakeboost.pipenv import (
 )
 from snakeboost.xvfb import (
     XvfbRun,
-)
-from snakeboost.utils import (
-    pipe,
 )
 from snakeboost.script import (
     ParseError,
@@ -37,7 +34,6 @@ __all__ = [
     "SnakemakeArgs",
     "SnakemakeSequenceArg",
     "XvfbRun",
-    "pipe",
     "snakemake_args",
     "snakemake_parser",
 ]

@@ -1,20 +1,16 @@
 from __future__ import absolute_import
 
-import hashlib
 import itertools as it
 from pathlib import Path
 from typing import Iterable, List, Optional, Union
+
+from snakeboost.utils import get_hash
 
 __all__ = ["PipEnv"]
 
 
 PYTHON_VENV_CREATE_ERR = "[ERROR] (jobid={jobid}): Error creating python environment"
 TIMED_OUT_ERR = "[ERROR] (jobid={jobid}): Script timed out when waiting for Python"
-
-
-def _get_hash(items: Iterable[Iterable[str]]):
-    encoded = str(sorted(*it.chain(items))).encode("utf-8")
-    return hashlib.md5(encoded).hexdigest()
 
 
 def _get_file_contents(paths: Iterable[Path]):
@@ -75,7 +71,9 @@ class PipEnv:
         self._dir = (
             Path(root)
             / "__snakemake_venvs__"
-            / _get_hash(filter(None, [packages, requirement_contents]))
+            / get_hash(
+                str(sorted(*it.chain(filter(None, [packages, requirement_contents]))))
+            )
         )
         self.venv = self._dir / "venv"
         self.bin = self.venv / "bin"
@@ -114,7 +112,7 @@ class PipEnv:
         )
         return (
             f"mkdir -p {self._dir} && ("
-            f" echo '[[ -x {self.python_path} ]] ||"
+            f" echo '[ -x {self.python_path} ] ||"
             "("
             f"virtualenv --no-download {self.venv} && "
             f"{install_cmd}"
