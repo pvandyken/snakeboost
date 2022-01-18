@@ -61,7 +61,7 @@ class wc(ShSingleCmd):
         return wc(f"{self.expr} -l")
 
 
-class ShPipe(UserList[ShCmd], ShCmd):
+class ShPipe(UserList, ShCmd):
     def __or__(self, other: ShCmd):
         if isinstance(other, ShPipe):
             return self.__class__([*self.data, *other])
