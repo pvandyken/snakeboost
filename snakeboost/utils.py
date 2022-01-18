@@ -12,6 +12,26 @@ BashWrapper = NamedTuple(
 )
 
 
+def get_replacement_field(
+    field_name: str = None,
+    format_spec: str = None,
+    conversion: str = None,
+):
+    if not field_name:
+        return ""
+    contents = "".join(
+        filter(
+            None,
+            [
+                field_name,
+                f"!{conversion}" if conversion else None,
+                f":{format_spec}" if format_spec else None,
+            ],
+        )
+    )
+    return f"{{{contents}}}"
+
+
 class ShIfBody:
     def __init__(self, expr: Union[StringLike, ShCmd]):
         self.expr = expr
