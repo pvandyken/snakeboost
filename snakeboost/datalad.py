@@ -117,7 +117,10 @@ class Datalad:
                     _path := ShVar("path"),
                     _in=split(field),
                     do=(
-                        ShIf(f"{resolve(_path)} = {resolve(self.dataset_root)}/.git/*")
+                        ShIf(
+                            f"{resolve(_path)} =~ "
+                            f"{resolve(self.dataset_root)}/(.*?/)*?.git/.+"
+                        )
                         .then(
                             # For each p within the root directory, echo p preceded by
                             # the appropriate datalad flag (-i or -o)
