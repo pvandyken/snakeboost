@@ -3,9 +3,12 @@ from __future__ import absolute_import
 
 import random
 import string
+import textwrap
 from collections import UserList
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
+
+DEBUG = False
 
 
 class ShVar:
@@ -19,18 +22,34 @@ class ShVar:
     def __str__(self):
         return f"${self.name}"
 
+    def set(self, value: "StringLike"):
+        return ShSetVariable(self.name, value)
+
 
 StringLike = Union[str, Path, ShVar]
 
 
-class ShCmd:
+class ShStatement:
+    pass
+
+
+class ShSetVariable(ShStatement):
+    def __init__(self, name: str, value: StringLike):
+        self.name = name
+        self.value = value
+
+    def __str__(self):
+        return f"{self.name}={self.value}"
+
+
+class ShCmd(ShStatement):
     pass
 
 
 class ShSingleCmd(ShCmd):
     cmd: str
 
-    def __init__(self, expr: str = ""):
+    def __init__(self, expr: StringLike = ""):
         self.expr = expr
 
     def __or__(self, other: ShCmd):
@@ -61,6 +80,13 @@ class wc(ShSingleCmd):
         return wc(f"{self.expr} -l")
 
 
+class echo(ShSingleCmd):
+    cmd = "echo"
+
+    def n(self):
+        return echo(f"{self.expr} -n")
+
+
 class ShPipe(UserList, ShCmd):
     def __or__(self, other: ShCmd):
         if isinstance(other, ShPipe):
@@ -69,3 +95,23 @@ class ShPipe(UserList, ShCmd):
 
     def __str__(self):
         return " | ".join(str(data) for data in self.data)
+
+
+BlockLines = Union[str, ShStatement, "ShBlock", Tuple["BlockLines", ...]]
+
+
+class ShBlock:
+    def __init__(self, *args: BlockLines):
+        self.statements = [
+            ShBlock(*statement) if isinstance(statement, tuple) else statement
+            for statement in args
+        ]
+
+    def __str__(self):
+        if DEBUG:
+            sep = "\n"
+            wrap = lambda s: f"(\n{textwrap.indent(s, '    ')}\n)"  # noqa: E731
+        else:
+            sep = "; "
+            wrap = lambda s: f"( {s} )"  # noqa: E731
+        return wrap(sep.join(str(statement) for statement in self.statements))

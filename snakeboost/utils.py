@@ -2,9 +2,10 @@
 from __future__ import absolute_import
 
 import hashlib
+import textwrap
 from typing import NamedTuple, Tuple, Union
 
-from snakeboost.sh_cmd import ShCmd, ShPipe, ShVar, StringLike
+from snakeboost.sh_cmd import DEBUG, ShBlock, ShCmd, ShStatement, ShVar, StringLike
 
 BashWrapper = NamedTuple(
     "BashWrapper",
@@ -43,7 +44,11 @@ class ShIfBody:
         return self.__class__(f"{self.expr}; else {cmd}")
 
     def fi(self):
-        return f"{self.expr}; fi"
+        if DEBUG:
+            closer = ";\nfi"
+        else:
+            closer = "; fi"
+        return f"{self.expr}{closer}"
 
 
 class ShIf:
@@ -60,7 +65,11 @@ class ShIf:
         cmd = cmd.strip()
         if cmd[-1] == ";":
             cmd = cmd[:-1]
-        return ShIfBody(f"if [[ {self.expr} ]]; then {cmd}")
+        if DEBUG:
+            statement = f"\n{textwrap.indent(cmd, '    ')}"
+        else:
+            statement = cmd
+        return ShIfBody(f"if [[ {self.expr} ]]; then {statement}")
 
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
@@ -69,14 +78,20 @@ class ShIf:
         return self.__class__(f"{self.expr} -e {expr}")
 
 
-def subsh(cmd: Union[str, ShCmd, ShPipe]):
+def subsh(cmd: Union[str, ShBlock, ShStatement]):
+    if DEBUG and len(str(cmd)) > 40:
+        return f"$(\n{textwrap.indent(str(cmd), '    ')}\n)"
     return f"$({cmd})"
 
 
 def sh_for(var: StringLike, _in: StringLike, do: StringLike):
+    if DEBUG:
+        wrap = f"do\n{textwrap.indent(str(do), '    ')};\ndone"
+    else:
+        wrap = f"do {do}; done"
     if isinstance(var, ShVar):
-        return f"for {var.name} in {_in}; do {do}; done"
-    return f"for {var} in {_in}; do {do}; done"
+        return f"for {var.name} in {_in}; {wrap}"
+    return f"for {var} in {_in}; {wrap}"
 
 
 def quote_escape(text: str):

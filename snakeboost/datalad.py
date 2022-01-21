@@ -12,7 +12,7 @@ from typing import Iterable, Optional, Tuple
 import attr
 import more_itertools as itx
 
-from snakeboost.sh_cmd import ShVar
+from snakeboost.sh_cmd import ShBlock, ShVar, echo, wc
 from snakeboost.utils import ShIf, get_replacement_field, resolve, sh_for, split, subsh
 
 __all__ = ["Datalad"]
@@ -132,10 +132,26 @@ class Datalad:
         # msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
         cli_args = f"-d {resolve(self.dataset_root)} -r"
 
-        return (
-            "{{ "
-            f"datalad get {cli_args} {file_list['inputs']}; "
-            f"datalad unlock {cli_args} {file_list['outputs']}; "
-            f"{cmd} "
-            "}}"
+        return ShBlock(
+            (
+                (inputs := ShVar("inputs")).set(
+                    file_list["inputs"] if "inputs" in file_list else '""'
+                ),
+                (outputs := ShVar("outputs")).set(
+                    file_list["outputs"] if "outputs" in file_list else '""'
+                ),
+                ShIf(echo(inputs).n() | wc().l())
+                .gt("0")
+                .then(f"datalad get {cli_args} {inputs}")
+                .fi(),
+                ShIf(echo(outputs).n() | wc().l())
+                .gt("0")
+                .then(f"datalad unlock {cli_args} {outputs}; ")
+                .fi(),
+            ),
+            cmd,
         )
+
+
+if __name__ == "__main__":
+    print(Datalad(Path("/path/to/root"))("echo {input}"))
