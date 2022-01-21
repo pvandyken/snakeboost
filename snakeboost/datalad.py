@@ -132,24 +132,26 @@ class Datalad:
         # msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
         cli_args = f"-d {resolve(self.dataset_root)} -r"
 
-        return ShBlock(
-            (
-                (inputs := ShVar("inputs")).set(
-                    file_list["inputs"] if "inputs" in file_list else '""'
+        return str(
+            ShBlock(
+                (
+                    (inputs := ShVar("inputs")).set(
+                        file_list["inputs"] if "inputs" in file_list else '""'
+                    ),
+                    (outputs := ShVar("outputs")).set(
+                        file_list["outputs"] if "outputs" in file_list else '""'
+                    ),
+                    ShIf(echo(inputs).n() | wc().l())
+                    .gt("0")
+                    .then(f"datalad get {cli_args} {inputs}")
+                    .fi(),
+                    ShIf(echo(outputs).n() | wc().l())
+                    .gt("0")
+                    .then(f"datalad unlock {cli_args} {outputs}; ")
+                    .fi(),
                 ),
-                (outputs := ShVar("outputs")).set(
-                    file_list["outputs"] if "outputs" in file_list else '""'
-                ),
-                ShIf(echo(inputs).n() | wc().l())
-                .gt("0")
-                .then(f"datalad get {cli_args} {inputs}")
-                .fi(),
-                ShIf(echo(outputs).n() | wc().l())
-                .gt("0")
-                .then(f"datalad unlock {cli_args} {outputs}; ")
-                .fi(),
-            ),
-            cmd,
+                cmd,
+            )
         )
 
 
