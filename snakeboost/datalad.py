@@ -119,7 +119,9 @@ class Datalad:
                     _in=split(field),
                     do=(
                         ShIf(
-                            sh.find(resolve(self.dataset_root)).path(resolve(_path))
+                            sh.find(resolve(self.dataset_root)).path(
+                                resolve(_path, True)
+                            )
                             | sh.wc().l()
                         )
                         .gt(0)
@@ -138,4 +140,6 @@ class Datalad:
 
         msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
 
-        return f"datalad run {msg} {cli_args} '{quote_escape(cmd)}'"
+        return (
+            f"datalad run {msg} -d {self.dataset_root} {cli_args} '{quote_escape(cmd)}'"
+        )

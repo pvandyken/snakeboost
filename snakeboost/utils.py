@@ -39,12 +39,15 @@ class ShIfBody:
     def __str__(self):
         raise Exception("Cannot turn ShIf directly into string. Call `.fi()` instead")
 
+    def els(self, cmd: str):
+        return self.__class__(f"{self.expr}; else {cmd}")
+
     def fi(self):
         return f"{self.expr}; fi"
 
 
 class ShIf:
-    def __init__(self, expr: Union[StringLike, ShCmd]):
+    def __init__(self, expr: Union[StringLike, ShCmd] = ""):
         if isinstance(expr, ShCmd):
             self.expr = subsh(expr)
         else:
@@ -61,6 +64,9 @@ class ShIf:
 
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
+
+    def e(self, expr: StringLike):
+        return self.__class__(f"{self.expr} -e {expr}")
 
 
 def subsh(cmd: Union[str, ShCmd, ShPipe]):
@@ -108,8 +114,9 @@ def split(text: str):
     return subsh(f"echo {text}")
 
 
-def resolve(path: StringLike):
-    return subsh(f"realpath -s {path}")
+def resolve(path: StringLike, no_symlinks: bool = False):
+    s = "-s" if no_symlinks else ""
+    return subsh(f"realpath {s} {path}")
 
 
 def get_hash(items: str):
