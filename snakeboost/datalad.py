@@ -13,15 +13,7 @@ import attr
 import more_itertools as itx
 
 from snakeboost.sh_cmd import ShVar
-from snakeboost.utils import (
-    ShIf,
-    get_replacement_field,
-    quote_escape,
-    resolve,
-    sh_for,
-    split,
-    subsh,
-)
+from snakeboost.utils import ShIf, get_replacement_field, resolve, sh_for, split, subsh
 
 __all__ = ["Datalad"]
 
@@ -109,35 +101,41 @@ class Datalad:
             )
         }
 
-        cli_args = " ".join(
-            subsh(
-                # Loop through the field in case it evaluates to a list of space
-                # separated paths (e.g. in the case of {input} -> /path/1 /path/2 etc)
-                sh_for(
-                    _path := ShVar("path"),
-                    _in=split(field),
-                    do=(
-                        ShIf(
-                            f"{resolve(_path)} =~ "
-                            f"{resolve(self.dataset_root)}/(.*?/)*?.git/.+"
-                        )
-                        .then(
-                            # For each p within the root directory, echo p preceded by
-                            # the appropriate datalad flag (-i or -o)
-                            f'echo -n " {CLI_FLAGS[key]} {resolve(_path)}"'
-                        )
-                        .fi()
-                    ),
+        file_list = {
+            key: " ".join(
+                subsh(
+                    # Loop through the field in case it evaluates to a list of space
+                    # separated paths (e.g. in the case of {input} -> /path/1 /path/2
+                    # etc)
+                    sh_for(
+                        _path := ShVar("path"),
+                        _in=split(field),
+                        do=(
+                            ShIf(
+                                f"{resolve(_path)} =~ "
+                                f"{resolve(self.dataset_root)}/(.*?/)*?.git/.+"
+                            )
+                            .then(
+                                # For each p within the root directory, echo p preceded
+                                # by the appropriate datalad flag (-i or -o)
+                                f'echo -n " {resolve(_path)}"'
+                            )
+                            .fi()
+                        ),
+                    )
                 )
+                for field in value
             )
             for key, value in sorted_fields.items()
-            for field in value
-        )
+        }
 
-        msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
+        # msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
+        cli_args = f"-d {resolve(self.dataset_root)} -r"
 
         return (
-            "(command -v git-annex &> /dev/null || "
-            '(echo "No git-annex installation found" && false)) && '
-            f"datalad run {msg} -d {self.dataset_root} {cli_args} '{quote_escape(cmd)}'"
+            "{"
+            f"datalad get {cli_args} {file_list['inputs']}; "
+            f"datalad unlock {cli_args} {file_list['outputs']}; "
+            f"{cmd} "
+            "}"
         )
