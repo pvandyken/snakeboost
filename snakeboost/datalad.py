@@ -12,7 +12,6 @@ from typing import Iterable, Optional, Tuple
 import attr
 import more_itertools as itx
 
-import snakeboost.sh_cmd as sh
 from snakeboost.sh_cmd import ShVar
 from snakeboost.utils import (
     ShIf,
@@ -118,13 +117,7 @@ class Datalad:
                     _path := ShVar("path"),
                     _in=split(field),
                     do=(
-                        ShIf(
-                            sh.find(resolve(self.dataset_root)).path(
-                                resolve(_path, True)
-                            )
-                            | sh.wc().l()
-                        )
-                        .gt(0)
+                        ShIf(f"{resolve(_path)} = {resolve(self.dataset_root)}/.git/*")
                         .then(
                             # For each p within the root directory, echo p preceded by
                             # the appropriate datalad flag (-i or -o)

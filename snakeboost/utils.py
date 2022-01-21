@@ -54,13 +54,13 @@ class ShIf:
             self.expr = expr
 
     def __str__(self):
-        return f"[ {self.expr} ]"
+        return f"[[ {self.expr} ]]"
 
     def then(self, cmd: str):
         cmd = cmd.strip()
         if cmd[-1] == ";":
             cmd = cmd[:-1]
-        return ShIfBody(f"if [ {self.expr} ]; then {cmd}")
+        return ShIfBody(f"if [[ {self.expr} ]]; then {cmd}")
 
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
