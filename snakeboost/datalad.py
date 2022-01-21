@@ -137,7 +137,7 @@ class Datalad:
         msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
 
         return (
-            "(command -v git-annex || "
-            'echo "No git-annex installation found" && false) && '
+            "(command -v git-annex &> /dev/null || "
+            '(echo "No git-annex installation found" && false)) && '
             f"datalad run {msg} -d {self.dataset_root} {cli_args} '{quote_escape(cmd)}'"
         )
