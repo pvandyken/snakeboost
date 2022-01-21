@@ -133,9 +133,9 @@ class Datalad:
         cli_args = f"-d {resolve(self.dataset_root)} -r"
 
         return (
-            "{"
+            "{{"
             f"datalad get {cli_args} {file_list['inputs']}; "
             f"datalad unlock {cli_args} {file_list['outputs']}; "
             f"{cmd} "
-            "}"
+            "}}"
         )
