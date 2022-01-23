@@ -125,6 +125,14 @@ class ShIf:
     def is_symlink(cls, expr: StringLike):
         return cls.h(expr)
 
+    @classmethod
+    def n(cls, expr: StringLike):
+        return cls(f"-n {expr}")
+
+    @classmethod
+    def not_empty(cls, expr: StringLike):
+        return cls.n(expr)
+
 
 def subsh(*args: ShEntity):
     cmd = block_args(args)

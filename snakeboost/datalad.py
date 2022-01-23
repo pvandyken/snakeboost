@@ -12,7 +12,7 @@ from typing import Iterable, Optional, Tuple
 import attr
 import more_itertools as itx
 
-from snakeboost.sh_cmd import ShBlock, ShVar, echo, wc
+from snakeboost.sh_cmd import ShBlock, ShVar, echo
 from snakeboost.utils import ShFor, ShIf, get_replacement_field, resolve, split, subsh
 
 __all__ = ["Datalad"]
@@ -102,25 +102,25 @@ class Datalad:
         }
 
         file_list = {
-            key: " ".join(
-                subsh(
-                    # Loop through the field in case it evaluates to a list of space
-                    # separated paths (e.g. in the case of {input} -> /path/1 /path/2
-                    # etc)
-                    ShFor(_path := ShVar("path"), _in=split(field))
-                    >> (
-                        ShIf(
-                            subsh(f"readlink -m {_path} || echo -n ''")
-                            + f" =~ {resolve(self.dataset_root)}/(.*?/)*?.git/.+"
-                        )
-                        >> (
-                            # For each p within the root directory, echo p preceded
-                            # by the appropriate datalad flag (-i or -o)
-                            echo(_path)
-                        ),
-                    )
+            key: subsh(
+                # Loop through the field in case it evaluates to a list of space
+                # separated paths (e.g. in the case of {input} -> /path/1 /path/2
+                # etc)
+                ShFor(
+                    _path := ShVar("path"),
+                    _in=split(" ".join(field for field in value)),
                 )
-                for field in value
+                >> (
+                    ShIf(
+                        subsh(f"readlink -m {_path} || echo -n ''")
+                        + f" =~ {resolve(self.dataset_root)}/(.*?/)*?.git/.+"
+                    )
+                    >> (
+                        # For each p within the root directory, echo p preceded
+                        # by the appropriate datalad flag (-i or -o)
+                        echo(f" {_path}").n()
+                    ),
+                )
             )
             for key, value in sorted_fields.items()
         }
@@ -137,10 +137,8 @@ class Datalad:
                     (outputs := ShVar("outputs")).set(
                         file_list["outputs"] if "outputs" in file_list else '""'
                     ),
-                    ShIf(echo(inputs).n() | wc().l()).gt("0")
-                    >> f"datalad get {cli_args} {inputs}",
-                    ShIf(echo(outputs).n() | wc().l()).gt("0")
-                    >> f"datalad unlock {cli_args} {outputs}",
+                    ShIf.not_empty(inputs) >> f"datalad get {cli_args} {inputs}",
+                    ShIf.not_empty(outputs) >> f"datalad unlock {cli_args} {outputs}",
                 ),
                 cmd,
             )
