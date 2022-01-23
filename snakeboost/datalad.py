@@ -118,7 +118,7 @@ class Datalad:
                     >> (
                         # For each p within the root directory, echo p preceded
                         # by the appropriate datalad flag (-i or -o)
-                        echo(f" {_path}").n()
+                        echo(f" {resolve(_path, True)}").n()
                     ),
                 )
             )
@@ -137,9 +137,8 @@ class Datalad:
                     (outputs := ShVar("outputs")).set(
                         file_list["outputs"] if "outputs" in file_list else '""'
                     ),
-                    f"pushd {self.dataset_root}",
-                    ShIf.not_empty(inputs) >> f"git annex get {inputs}",
-                    "popd",
+                    ShIf.not_empty(inputs)
+                    >> f"git -C {resolve(self.dataset_root)} annex get {inputs}",
                     ShIf.not_empty(outputs) >> f"datalad unlock {cli_args} {outputs}",
                 ),
                 cmd,
