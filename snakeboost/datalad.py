@@ -110,7 +110,7 @@ class Datalad:
                     ShFor(_path := ShVar("path"), _in=split(field))
                     >> (
                         ShIf(
-                            subsh(f"readlink {_path} || echo -n ''")
+                            subsh(f"readlink -m {_path} || echo -n ''")
                             + f" =~ {resolve(self.dataset_root)}/(.*?/)*?.git/.+"
                         )
                         >> (
