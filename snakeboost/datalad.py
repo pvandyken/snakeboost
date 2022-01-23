@@ -152,7 +152,7 @@ class Datalad:
                                 ShIf.not_empty(inputs)
                                 >> (
                                     f"git -C {resolve(self.dataset_root)} "
-                                    "annex get {inputs}"
+                                    f"annex get {inputs}"
                                 ),
                                 ShIf.not_empty(outputs)
                                 >> f"datalad unlock {cli_args} {outputs}",
