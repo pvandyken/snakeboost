@@ -137,7 +137,9 @@ class Datalad:
                     (outputs := ShVar("outputs")).set(
                         file_list["outputs"] if "outputs" in file_list else '""'
                     ),
-                    ShIf.not_empty(inputs) >> f"datalad get {cli_args} {inputs}",
+                    f"pushd {self.dataset_root}",
+                    ShIf.not_empty(inputs) >> f"git annex get {inputs}",
+                    "popd",
                     ShIf.not_empty(outputs) >> f"datalad unlock {cli_args} {outputs}",
                 ),
                 cmd,
