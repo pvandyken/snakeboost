@@ -13,7 +13,15 @@ import attr
 import more_itertools as itx
 
 from snakeboost.sh_cmd import ShBlock, ShVar, echo
-from snakeboost.utils import ShFor, ShIf, get_replacement_field, resolve, split, subsh
+from snakeboost.utils import (
+    ShFor,
+    ShIf,
+    get_replacement_field,
+    quote_escape,
+    resolve,
+    split,
+    subsh,
+)
 
 __all__ = ["Datalad"]
 
@@ -137,9 +145,22 @@ class Datalad:
                     (outputs := ShVar("outputs")).set(
                         file_list["outputs"] if "outputs" in file_list else '""'
                     ),
-                    ShIf.not_empty(inputs)
-                    >> f"git -C {resolve(self.dataset_root)} annex get {inputs}",
-                    ShIf.not_empty(outputs) >> f"datalad unlock {cli_args} {outputs}",
+                    "echo '"
+                    + quote_escape(
+                        str(
+                            ShBlock(
+                                ShIf.not_empty(inputs)
+                                >> (
+                                    f"git -C {resolve(self.dataset_root)} "
+                                    "annex get {inputs}"
+                                ),
+                                ShIf.not_empty(outputs)
+                                >> f"datalad unlock {cli_args} {outputs}",
+                                wrap=False,
+                            )
+                        )
+                    )
+                    + f"' | flock -w 900 {self.dataset_root} bash",
                 ),
                 cmd,
             )

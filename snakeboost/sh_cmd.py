@@ -8,7 +8,7 @@ from collections import UserList
 from pathlib import Path
 from typing import Iterable, Tuple, Union
 
-DEBUG = True
+DEBUG = False
 
 
 class ShVar:
