@@ -116,7 +116,7 @@ class Datalad:
                         >> (
                             # For each p within the root directory, echo p preceded
                             # by the appropriate datalad flag (-i or -o)
-                            echo(_path).n()
+                            echo(_path)
                         ),
                     )
                 )
