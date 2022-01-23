@@ -6,9 +6,9 @@ import string
 import textwrap
 from collections import UserList
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Iterable, Tuple, Union
 
-DEBUG = False
+DEBUG = True
 
 
 class ShVar:
@@ -83,8 +83,25 @@ class wc(ShSingleCmd):
 class echo(ShSingleCmd):
     cmd = "echo"
 
+    def __init__(self, expr: StringLike):
+        super().__init__(expr)
+        self.flags = []
+
     def n(self):
-        return echo(f"{self.expr} -n")
+        self.flags.append("n")
+        return self
+
+    def __str__(self):
+        flags = f"-{''.join(self.flags)}" if self.flags else ""
+        return f'{self.cmd} {flags} "{self.expr}"'
+
+
+class mkdir(ShSingleCmd):
+    cmd = "mkdir"
+
+    @property
+    def p(self):
+        return mkdir(f"{self.expr} -p")
 
 
 class ShPipe(UserList, ShCmd):
@@ -97,15 +114,21 @@ class ShPipe(UserList, ShCmd):
         return " | ".join(str(data) for data in self.data)
 
 
-BlockLines = Union[str, ShStatement, "ShBlock", Tuple["BlockLines", ...]]
+ShEntity = Union[str, ShStatement, "ShBlock", Tuple["ShEntity", ...]]
+
+
+def canonicalize(entities: Iterable[ShEntity]):
+    return [
+        ShBlock(*entity) if isinstance(entity, tuple) else entity
+        for entity in entities
+        if entity
+    ]
 
 
 class ShBlock:
-    def __init__(self, *args: BlockLines):
-        self.statements = [
-            ShBlock(*statement) if isinstance(statement, tuple) else statement
-            for statement in args
-        ]
+    def __init__(self, *args: ShEntity, wrap: bool = True):
+        self.statements = canonicalize(args)
+        self.wrap = wrap
 
     def __str__(self):
         if DEBUG:
@@ -114,4 +137,8 @@ class ShBlock:
         else:
             sep = "; "
             wrap = lambda s: f"( {s} )"  # noqa: E731
-        return wrap(sep.join(str(statement) for statement in self.statements))
+
+        body = sep.join(str(statement) for statement in self.statements)
+        if self.wrap:
+            return wrap(body)
+        return body

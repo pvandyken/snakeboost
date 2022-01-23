@@ -7,8 +7,10 @@ from typing import Iterable, List, Optional
 
 import attr
 
+from snakeboost.sh_cmd import ShBlock, ShEntity, echo, mkdir
 from snakeboost.utils import (
     BashWrapper,
+    ShIf,
     cp_timestamp,
     hash_path,
     rm_if_exists,
@@ -128,22 +130,23 @@ class Tar:
         output_scripts = (BashWrapper(*zip(
             *(
                 (
-                    f"( [ ! -e {_stowed(dest)} ] || ("
-                        "echo "
-                            '"Found stashed tar file: '
-                            f"'{_stowed(dest)}' "
-                            "while atempting to generate the output: "
-                            f"'{dest}' "
-                            "Please rename this file, remove it, or manually change "
-                            "its extension back to .tar.gz. If this file should not "
-                            "have been processed, you may with to run ``snakemake "
-                            '--touch`` to enforce correct timestamps for files" && '
-                        "false"
-                    f")) {AND}"
-                    f"{rm_if_exists(dest)} {AND} "
-                    f"{rm_if_exists(tmpdir, True)} {AND} "
-                    f"mkdir -p {tmpdir} {AND} "
-                    f"ln -s {tmpdir} {dest}",
+                    (
+                        ShIf.e(_stowed(dest)) >> (
+                            echo(
+                                f"Found stashed tar file: '{_stowed(dest)}' while "
+                                f"atempting to generate the output: '{dest}'. Please "
+                                "rename this file, remove it, or manually change its "
+                                "extension back to .tar.gz. If this file should not "
+                                "have been processed, you may with to run ``snakemake "
+                                '--touch`` to enforce correct timestamps for files.'
+                            ),
+                            'false'
+                        ),
+                        rm_if_exists(dest),
+                        rm_if_exists(tmpdir, True),
+                        mkdir(tmpdir).p,
+                        f'ln -s {tmpdir} {dest}'
+                    ),
 
                     f"{_save_tar(dest, tmpdir)}",
 
@@ -163,7 +166,7 @@ class Tar:
                     *(
                         (
                             _open_tar(tar, tmpdir),
-                            f"{_save_tar(tar, tmpdir)}",
+                            _save_tar(tar, tmpdir),
                             _close_tar(tar),
                         )
                         for tar in self.modify  # pylint: disable=not-an-iterable
@@ -190,50 +193,54 @@ class Tar:
         )
 
 
-def _join_commands(commands: Iterable[str]):
-    return f" {AND} ".join(filter(None, commands))
+def _join_commands(commands: Iterable[ShEntity]):
+    return ShBlock(*commands)
 
 
 def _open_tar(tarfile: str, mount: str):
     stowed = _stowed(tarfile)
-
-    # fmt: off
-    return (
-        f"([ -d {mount} ] {AND} ("
-            f"[ -e {stowed} ] {AND} ("
-                f"{rm_if_exists(tarfile)}"
-            f") {OR} ("
-                f"{silent_mv(tarfile, stowed)}"
-            ")"
-        f") {OR} ("
-            f"mkdir -p {mount} {AND} "
-            f"([ -e {stowed} ] {AND} ("
-                f"echo \"Found stowed tarfile: '{stowed}''. Extracting...\" {AND} "
-                f"tar -xzf {stowed} -C {mount} {AND} "
-                f"{rm_if_exists(tarfile)}"
-            f") {OR} ("
-                f"echo \"Extracting and stowing tarfile: '{tarfile}'\" {AND} "
-                f"tar -xzf {tarfile} -C {mount} {AND} "
-                f"{silent_mv(tarfile, stowed)} "
-            "))"
-        f")) {AND} "
-        f"ln -s {mount} {tarfile} {AND} {cp_timestamp(stowed, tarfile)}"
+    return ShBlock(
+        ShIf.is_dir(mount)
+        >> (
+            ShIf.exists(stowed)
+            >> (rm_if_exists(tarfile))
+            >> (silent_mv(tarfile, stowed))
+        )
+        >> (
+            mkdir(mount).p,
+            ShIf.exists(stowed)
+            >> (
+                echo(f"Found stowed tarfile: '{stowed}'. Extracting..."),
+                f"tar -xzf {stowed} -C {mount}",
+                rm_if_exists(tarfile),
+            )
+            >> (
+                echo(f"Extracting and stowing tarfile: '{tarfile}'"),
+                f"tar -xzf {tarfile} -C {mount}",
+                silent_mv(tarfile, stowed),
+            ),
+        ),
+        f"ln -s {mount} {tarfile}",
+        cp_timestamp(stowed, tarfile),
     )
-    # fmt: on
 
 
 def _close_tar(tarfile: str):
-    return f"rm {tarfile} {AND} {silent_mv(_stowed(tarfile), tarfile)}"
+    return (f"rm {tarfile}", silent_mv(_stowed(tarfile), tarfile))
 
 
 def _save_tar(tarfile: str, mount: str):
     return (
-        f"rm {tarfile} {AND} "
-        f'echo "Packing tar file: {tarfile}" {AND} '
-        f"tar -czf {tarfile} -C {mount} . {AND} "
-        f"{rm_if_exists(_stowed(tarfile))}"
+        f"rm {tarfile}",
+        echo(f"Packing tar file: {tarfile}"),
+        f"tar -czf {tarfile} -C {mount} .",
+        rm_if_exists(_stowed(tarfile)),
     )
 
 
 def _stowed(tarfile: str):
     return tarfile + ".swp"
+
+
+if __name__ == "__main__":
+    print(Tar(Path("/tmp"), ["{input}"])("echo truth"))

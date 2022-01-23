@@ -5,12 +5,32 @@ import hashlib
 import textwrap
 from typing import NamedTuple, Tuple, Union
 
-from snakeboost.sh_cmd import DEBUG, ShBlock, ShCmd, ShStatement, ShVar, StringLike
+from snakeboost.sh_cmd import (
+    DEBUG,
+    ShBlock,
+    ShCmd,
+    ShEntity,
+    ShStatement,
+    ShVar,
+    StringLike,
+    canonicalize,
+    echo,
+)
 
 BashWrapper = NamedTuple(
     "BashWrapper",
-    [("before", Tuple[str]), ("success", Tuple[str]), ("failure", Tuple[str])],
+    [
+        ("before", Tuple[ShEntity]),
+        ("success", Tuple[ShEntity]),
+        ("failure", Tuple[ShEntity]),
+    ],
 )
+
+
+def block_args(cmd: Tuple[ShEntity]):
+    if len(cmd) > 1:
+        return str(ShBlock(*cmd, wrap=False))
+    return str(canonicalize(cmd)[0])
 
 
 def get_replacement_field(
@@ -33,22 +53,31 @@ def get_replacement_field(
     return f"{{{contents}}}"
 
 
-class ShIfBody:
-    def __init__(self, expr: Union[StringLike, ShCmd]):
-        self.expr = expr
+class ShIfBody(ShStatement):
+    def __init__(self, preamble: str, cmds: Tuple[ShEntity]):
+        body = block_args(cmds)
+        if DEBUG:
+            statement = f"\n{textwrap.indent(body, '    ')}"
+        else:
+            statement = body
+        self.expr = f"{preamble} {statement}"
 
     def __str__(self):
-        raise Exception("Cannot turn ShIf directly into string. Call `.fi()` instead")
-
-    def els(self, cmd: str):
-        return self.__class__(f"{self.expr}; else {cmd}")
-
-    def fi(self):
         if DEBUG:
-            closer = ";\nfi"
+            closer = "\nfi"
         else:
             closer = "; fi"
         return f"{self.expr}{closer}"
+
+    def els(self, *cmd: ShEntity):
+        if DEBUG:
+            return self.__class__(f"{self.expr}\nelse", cmd)
+        return self.__class__(f"{self.expr}; else", cmd)
+
+    def __rshift__(self, cmd: ShEntity):
+        if isinstance(cmd, tuple):
+            return self.els(*cmd)
+        return self.els(cmd)
 
 
 class ShIf:
@@ -61,37 +90,68 @@ class ShIf:
     def __str__(self):
         return f"[[ {self.expr} ]]"
 
-    def then(self, cmd: str):
-        cmd = cmd.strip()
-        if cmd[-1] == ";":
-            cmd = cmd[:-1]
-        if DEBUG:
-            statement = f"\n{textwrap.indent(cmd, '    ')}"
-        else:
-            statement = cmd
-        return ShIfBody(f"if [[ {self.expr} ]]; then {statement}")
+    def then(self, *cmd: ShEntity):
+        return ShIfBody(f"if [[ {self.expr} ]]; then", cmd)
+
+    def __rshift__(self, cmd: ShEntity):
+        if isinstance(cmd, tuple):
+            return self.then(*cmd)
+        return self.then(cmd)
 
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
 
-    def e(self, expr: StringLike):
-        return self.__class__(f"{self.expr} -e {expr}")
+    @classmethod
+    def e(cls, expr: StringLike):
+        return cls(f"-e {expr}")
+
+    @classmethod
+    def exists(cls, expr: StringLike):
+        return cls.e(expr)
+
+    @classmethod
+    def d(cls, expr: StringLike):
+        return cls(f"-d {expr}")
+
+    @classmethod
+    def is_dir(cls, expr: StringLike):
+        return cls.d(expr)
+
+    @classmethod
+    def h(cls, expr: StringLike):
+        return cls(f"-h {expr}")
+
+    @classmethod
+    def is_symlink(cls, expr: StringLike):
+        return cls.h(expr)
 
 
-def subsh(cmd: Union[str, ShBlock, ShStatement]):
-    if DEBUG and len(str(cmd)) > 40:
-        return f"$(\n{textwrap.indent(str(cmd), '    ')}\n)"
+def subsh(*args: ShEntity):
+    cmd = block_args(args)
+    if DEBUG and len(cmd) > 40:
+        return f"$(\n{textwrap.indent(cmd, '    ')}\n)"
     return f"$({cmd})"
 
 
-def sh_for(var: StringLike, _in: StringLike, do: StringLike):
-    if DEBUG:
-        wrap = f"do\n{textwrap.indent(str(do), '    ')};\ndone"
-    else:
-        wrap = f"do {do}; done"
-    if isinstance(var, ShVar):
-        return f"for {var.name} in {_in}; {wrap}"
-    return f"for {var} in {_in}; {wrap}"
+class ShFor(ShStatement):
+    def __init__(self, var: StringLike, _in: StringLike):
+        self.var = var
+        self._in = _in
+
+    def do(self, *cmds: ShEntity):
+        body = block_args(cmds)
+        if DEBUG:
+            statement = f"\n{textwrap.indent(body, '    ')}\ndone"
+        else:
+            statement = f"{body}; done"
+
+        var_name = self.var.name if isinstance(self.var, ShVar) else self.var
+        return f"for {var_name} in {self._in}; do {statement}"
+
+    def __rshift__(self, cmd: ShEntity):
+        if isinstance(cmd, tuple):
+            return self.do(*cmd)
+        return self.do(cmd)
 
 
 def quote_escape(text: str):
@@ -126,7 +186,7 @@ def rm_if_exists(path: str, recursive: bool = False):
 
 
 def split(text: str):
-    return subsh(f"echo {text}")
+    return subsh(echo(text))
 
 
 def resolve(path: StringLike, no_symlinks: bool = False):
