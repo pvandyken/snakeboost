@@ -16,12 +16,12 @@ from snakeboost.utils import get_hash, get_replacement_field, within_quotes
 def _pipe(*funcs_and_cmd):
     """ Pipe a value through a sequence of functions
 
-    I.e. ``pipe(f, g, h, cmd)`` is equivalent to ``h(g(f(cmd)))``
+    I.e. ``pipe(f, g, h, cmd)`` is equivalent to ``f(g(h(cmd)))``
 
     We think of the value as progressing through a pipe of several
     transformations, much like pipes in UNIX
 
-    ``$ cat data | f | g | h``
+    ``$ cat data | h | g | f``
 
     >>> double = lambda i: 2 * i
     >>> pipe(3, double, str)
@@ -31,7 +31,7 @@ def _pipe(*funcs_and_cmd):
         (https://toolz.readthedocs.io/en/latest/_modules/toolz/functoolz.html#pipe)
     """
     cmd = funcs_and_cmd[-1]
-    for func in funcs_and_cmd[:-1]:
+    for func in reversed(funcs_and_cmd[:-1]):
         cmd = func(cmd)
     return cmd
 
