@@ -1,16 +1,17 @@
 # noqa: E131
 from __future__ import absolute_import
 
-import itertools as it
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional, Tuple
 
 import attr
+import more_itertools as itx
 
-from snakeboost.sh_cmd import ShBlock, ShEntity, echo, mkdir
+from snakeboost.sh_cmd import ShBlock, ShEntity, StringLike, echo, mkdir
 from snakeboost.utils import (
     BashWrapper,
     ShIf,
+    ShTry,
     cp_timestamp,
     hash_path,
     rm_if_exists,
@@ -18,15 +19,6 @@ from snakeboost.utils import (
 )
 
 __all__ = ["Tar"]
-
-DEBUG = False
-
-if DEBUG:
-    AND = "&&\n"
-    OR = "||\n"
-else:
-    AND = "&&"
-    OR = "||"
 
 
 @attr.frozen
@@ -109,95 +101,56 @@ class Tar:
         str
             Modified shell script
         """
-        input_scripts = (
-            BashWrapper(
-                *zip(
-                    *(
-                        (
-                            _open_tar(src, f"{self.root}/{hash_path(src)}"),
-                            _close_tar(src),
-                            _close_tar(src),
-                        )
-                        for src in self.inputs  # pylint: disable=not-an-iterable
-                    )
-                )
-            )
-            if self.inputs
-            else BashWrapper(tuple(), tuple(), tuple())
+        input_scripts = _get_bash_wrapper(
+            self.inputs,
+            lambda src: (
+                _open_tar(src, self._get_mount_dir(src)),
+                _close_tar(src),
+                _close_tar(src),
+            ),
         )
 
-        # fmt: off
-        output_scripts = (BashWrapper(*zip(
-            *(
-                (
-                    (
-                        ShIf.e(_stowed(dest)) >> (
-                            echo(
-                                f"Found stashed tar file: '{_stowed(dest)}' while "
-                                f"atempting to generate the output: '{dest}'. Please "
-                                "rename this file, remove it, or manually change its "
-                                "extension back to .tar.gz. If this file should not "
-                                "have been processed, you may with to run ``snakemake "
-                                '--touch`` to enforce correct timestamps for files.'
-                            ),
-                            'false'
-                        ),
-                        rm_if_exists(dest),
-                        rm_if_exists(tmpdir, True),
-                        mkdir(tmpdir).p,
-                        f'ln -s {tmpdir} {dest}'
-                    ),
-
-                    _save_tar(dest, tmpdir),
-
-                    "",
-                )
-                for dest in self.outputs  # pylint: disable=not-an-iterable
-                if ((tmpdir := f"{self.root}/{hash_path(dest)}"))
-            )))
-            if self.outputs
-            else BashWrapper(tuple(), tuple(), tuple())
+        output_scripts = _get_bash_wrapper(
+            self.outputs,
+            lambda dest: (
+                _open_output_tar(dest, self._get_mount_dir(dest)),
+                _save_tar(dest, self._get_mount_dir(dest)),
+                "",
+            ),
         )
-        # fmt: on
 
-        modify_scripts = (
-            BashWrapper(
-                *zip(
-                    *(
-                        (
-                            _open_tar(tar, tmpdir),
-                            _save_tar(tar, tmpdir),
-                            _close_tar(tar),
-                        )
-                        for tar in self.modify  # pylint: disable=not-an-iterable
-                        if ((tmpdir := f"{self.root}/{hash_path(tar)}"))
-                    )
-                )
-            )
-            if self.modify
-            else BashWrapper(tuple(), tuple(), tuple())
+        modify_scripts = _get_bash_wrapper(
+            self.modify,
+            lambda tar: (
+                _open_tar(tar, self._get_mount_dir(tar)),
+                _save_tar(tar, self._get_mount_dir(tar)),
+                _close_tar(tar),
+            ),
         )
 
         before, success, failure = zip(input_scripts, output_scripts, modify_scripts)
 
-        # pylint: disable=used-before-assignment
-        return "".join(
-            [
-                f"{_join_commands(it.chain(*before))} {AND} ",
-                cmd,
-                f" {AND} {s} " if (s := _join_commands(it.chain(*success))) else "",
-                f" {OR} ({s} && exit 1)"
-                if (s := _join_commands(it.chain(*failure)))
-                else "",
-            ]
-        )
+        return ShBlock(
+            ShBlock(*itx.flatten(before)),
+            ShTry(cmd).catch(*itx.flatten(failure), "false").els(*itx.flatten(success)),
+        ).to_str()
+
+    def _get_mount_dir(self, dest):
+        return Path(self.root, hash_path(dest))
 
 
-def _join_commands(commands: Iterable[ShEntity]):
-    return ShBlock(*commands)
+def _get_bash_wrapper(
+    files: Optional[Iterable[str]],
+    factory: Callable[[str], Tuple[ShEntity, ShEntity, ShEntity]],
+):
+    return (
+        BashWrapper(*zip(*(factory(file) for file in files)))
+        if files
+        else BashWrapper(tuple(), tuple(), tuple())
+    )
 
 
-def _open_tar(tarfile: str, mount: str):
+def _open_tar(tarfile: str, mount: Path):
     stowed = _stowed(tarfile)
     return ShBlock(
         ShIf.is_dir(mount)
@@ -225,11 +178,32 @@ def _open_tar(tarfile: str, mount: str):
     )
 
 
+def _open_output_tar(tarfile: str, mount_dir: StringLike):
+    return (
+        ShIf.e(_stowed(tarfile))
+        >> (
+            echo(
+                f"Found stashed tar file: '{_stowed(tarfile)}' while "
+                f"atempting to generate the output: '{tarfile}'. Please "
+                "rename this file, remove it, or manually change its "
+                "extension back to .tar.gz. If this file should not "
+                "have been processed, you may with to run ``snakemake "
+                "--touch`` to enforce correct timestamps for files."
+            ),
+            "false",
+        ),
+        rm_if_exists(tarfile),
+        rm_if_exists(mount_dir, True),
+        mkdir(mount_dir).p,
+        f"ln -s {mount_dir} {tarfile}",
+    )
+
+
 def _close_tar(tarfile: str):
     return (f"rm {tarfile}", silent_mv(_stowed(tarfile), tarfile))
 
 
-def _save_tar(tarfile: str, mount: str):
+def _save_tar(tarfile: str, mount: Path):
     return (
         f"rm {tarfile}",
         echo(f"Packing tar file: {tarfile}"),
@@ -240,3 +214,17 @@ def _save_tar(tarfile: str, mount: str):
 
 def _stowed(tarfile: str):
     return tarfile + ".swp"
+
+
+# if __name__ == "__main__":
+#     tar = Tar(Path("/tmp")).using(inputs = ["{input.data}"], outputs = ["{output}"])(
+#         (
+# "wm_cluster_remove_outliers.py "
+# "-j {threads} "
+# "{input.data} {input.atlas} {params.work_folder} && "
+
+# "mv "
+# "{params.work_folder}/{params.results_subfolder}_outlier_removed/* {output}/"
+#         )
+#     )
+#     print(tar)

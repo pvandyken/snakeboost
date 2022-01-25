@@ -157,10 +157,21 @@ class ShIfNot(ShIf):
 class ShTry(ShStatement):
     def __init__(self, *args: ShEntity):
         self.cmd = ShBlock(*args)
+        self._catch = ""
+        self._els = ""
+
+    def els(self, *cmds: ShEntity):
+        self._els = ShBlock(*cmds)
+        return self
 
     def catch(self, *cmds: ShEntity):
-        catch_cmd = ShBlock(cmds)
-        return f"{self.cmd} || {catch_cmd}"
+        self._catch = ShBlock(*cmds)
+        return self
+
+    def __str__(self):
+        catch = f"|| {self._catch}" if self._catch else ""
+        els = f"&& {self._els}" if self._els else ""
+        return ShBlock(f"{self.cmd} {els} {catch}").to_str()
 
 
 def subsh(*args: ShEntity):
@@ -227,7 +238,7 @@ def hash_path(name: str):
     return f"$(realpath '{quote_escape(name)}' | md5sum | awk '{{{{print $1}}}}')"
 
 
-def rm_if_exists(path: str, recursive: bool = False):
+def rm_if_exists(path: StringLike, recursive: bool = False):
     if recursive:
         flag = "-rf"
     else:
