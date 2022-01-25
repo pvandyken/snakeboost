@@ -14,10 +14,10 @@ import more_itertools as itx
 
 from snakeboost.sh_cmd import ShBlock, ShVar, echo
 from snakeboost.utils import (
+    Flock,
     ShFor,
     ShIf,
     get_replacement_field,
-    quote_escape,
     resolve,
     split,
     subsh,
@@ -136,35 +136,22 @@ class Datalad:
         # msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
         cli_args = f"-d {resolve(self.dataset_root)} -r"
 
-        return str(
-            ShBlock(
-                (
-                    (inputs := ShVar("inputs")).set(
-                        file_list["inputs"] if "inputs" in file_list else '""'
-                    ),
-                    (outputs := ShVar("outputs")).set(
-                        file_list["outputs"] if "outputs" in file_list else '""'
-                    ),
-                    "echo '"
-                    + quote_escape(
-                        str(
-                            ShBlock(
-                                ShIf.not_empty(inputs)
-                                >> (
-                                    f"git -C {resolve(self.dataset_root)} "
-                                    f"annex get {inputs}"
-                                ),
-                                ShIf.not_empty(outputs)
-                                >> f"datalad unlock {cli_args} {outputs}",
-                                wrap=False,
-                            )
-                        )
-                    )
-                    + f"' | flock -w 900 {self.dataset_root} bash",
+        return ShBlock(
+            (
+                (inputs := ShVar("inputs")).set(
+                    file_list["inputs"] if "inputs" in file_list else '""'
                 ),
-                cmd,
-            )
-        )
+                (outputs := ShVar("outputs")).set(
+                    file_list["outputs"] if "outputs" in file_list else '""'
+                ),
+                Flock(self.dataset_root, wait=900).do(
+                    ShIf.not_empty(inputs)
+                    >> (f"git -C {resolve(self.dataset_root)} " f"annex get {inputs}"),
+                    ShIf.not_empty(outputs) >> f"datalad unlock {cli_args} {outputs}",
+                ),
+            ),
+            cmd,
+        ).to_str()
 
 
 if __name__ == "__main__":

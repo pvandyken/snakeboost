@@ -4,7 +4,8 @@ import itertools as it
 from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
-from snakeboost.utils import get_hash
+from snakeboost.sh_cmd import ShBlock, echo, mkdir
+from snakeboost.utils import Flock, ShIf, ShTry, get_hash
 
 __all__ = ["PipEnv"]
 
@@ -110,17 +111,16 @@ class PipEnv:
                 ],
             )
         )
-        return (
-            f"mkdir -p {self._dir} && ("
-            f" echo '[ -x {self.python_path} ] ||"
-            "("
-            f"virtualenv --no-download {self.venv} && "
-            f"{install_cmd}"
-            ") || ("
-            f"echo '\"'\"'{PYTHON_VENV_CREATE_ERR}'\"'\"' 1>&2 && false"
-            f")' | flock -w 900 {self._dir} bash "
-            ")"
-        )
+        return ShBlock(
+            mkdir(self._dir).p,
+            Flock(self._dir, wait=900).do(
+                ShIf.isnt.executable(self.python_path).then(
+                    ShTry(f"virtual_env --no-download {self.venv}", install_cmd).catch(
+                        echo(f"{PYTHON_VENV_CREATE_ERR} 1>&2"), "false"
+                    )
+                )
+            ),
+        ).to_str()
 
     def python(self, cmd: str):
         """Ensure existance of venv then run python command
@@ -181,3 +181,7 @@ class PipEnv:
             Modified shell script
         """
         return f"{self.get_venv} && {cmd}"
+
+
+if __name__ == "__main__":
+    print(PipEnv("/tmp", packages=["black", "flake8"]).get_venv)

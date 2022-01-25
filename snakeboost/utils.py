@@ -102,6 +102,11 @@ class ShIf:
         return self.__class__(f"{self.expr} -gt {expr}")
 
     @classmethod
+    @property
+    def isnt(cls):
+        return ShIfNot
+
+    @classmethod
     def e(cls, expr: StringLike):
         return cls(f"-e {expr}")
 
@@ -130,8 +135,32 @@ class ShIf:
         return cls(f"-n {expr}")
 
     @classmethod
+    def x(cls, expr: StringLike):
+        return cls(f"-x {expr}")
+
+    @classmethod
+    def executable(cls, expr: StringLike):
+        return cls.x(expr)
+
+    @classmethod
     def not_empty(cls, expr: StringLike):
         return cls.n(expr)
+
+
+class ShIfNot(ShIf):
+    def __init__(self, expr: Union[StringLike, ShCmd] = ""):
+        if isinstance(expr, ShCmd):
+            expr = subsh(expr)
+        super().__init__(f"! {expr}")
+
+
+class ShTry(ShStatement):
+    def __init__(self, *args: ShEntity):
+        self.cmd = ShBlock(*args)
+
+    def catch(self, *cmds: ShEntity):
+        catch_cmd = ShBlock(cmds)
+        return f"{self.cmd} || {catch_cmd}"
 
 
 def subsh(*args: ShEntity):
@@ -160,6 +189,19 @@ class ShFor(ShStatement):
         if isinstance(cmd, tuple):
             return self.do(*cmd)
         return self.do(cmd)
+
+
+class Flock:
+    def __init__(self, file: StringLike, wait: int = 900):
+        self._wait = wait
+        self._file = file
+
+    def do(self, *cmds: ShEntity):
+        cmd = quote_escape(block_args(cmds))
+        suffix = f"| flock -w {self._wait} {self._file} /bin/bash"
+        if DEBUG:
+            return f"echo '\n{textwrap.indent(cmd, '    ')}\n' {suffix}"
+        return f"echo '{cmd}' {suffix}"
 
 
 def quote_escape(text: str):

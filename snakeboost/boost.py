@@ -64,7 +64,7 @@ class Boost:
             for field_component in zip(*field_components)
         ]
         unique_fields = [*filter(None, itx.unique_everseen(fields))]
-        field_subs = {field: f"${i + 1}" for i, field in enumerate(unique_fields)}
+        field_subs = {field: f"${{{i + 1}}}" for i, field in enumerate(unique_fields)}
         script = "#!/bin/bash\n" + "".join(
             _construct_script(
                 (literal, field_subs[field] if field in field_subs else None)

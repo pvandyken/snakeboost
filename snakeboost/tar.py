@@ -148,7 +148,7 @@ class Tar:
                         f'ln -s {tmpdir} {dest}'
                     ),
 
-                    f"{_save_tar(dest, tmpdir)}",
+                    _save_tar(dest, tmpdir),
 
                     "",
                 )
@@ -240,7 +240,3 @@ def _save_tar(tarfile: str, mount: str):
 
 def _stowed(tarfile: str):
     return tarfile + ".swp"
-
-
-if __name__ == "__main__":
-    print(Tar(Path("/tmp"), ["{input}"])("echo truth"))

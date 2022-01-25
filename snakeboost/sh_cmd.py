@@ -130,6 +130,9 @@ class ShBlock:
         self.statements = canonicalize(args)
         self.wrap = wrap
 
+    def to_str(self):
+        return str(self)
+
     def __str__(self):
         if DEBUG:
             sep = "\n"
