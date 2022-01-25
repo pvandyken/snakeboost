@@ -114,7 +114,9 @@ class PipEnv:
         return ShBlock(
             mkdir(self._dir).p,
             Flock(self._dir, wait=900).do(
-                ShIf.isnt.executable(self.python_path).then(
+                ShIf.isnt()
+                .executable(self.python_path)
+                .then(
                     ShTry(f"virtual_env --no-download {self.venv}", install_cmd).catch(
                         echo(f"{PYTHON_VENV_CREATE_ERR} 1>&2"), "false"
                     )

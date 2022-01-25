@@ -102,7 +102,6 @@ class ShIf:
         return self.__class__(f"{self.expr} -gt {expr}")
 
     @classmethod
-    @property
     def isnt(cls):
         return ShIfNot
 
