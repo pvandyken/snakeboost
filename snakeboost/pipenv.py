@@ -111,18 +111,23 @@ class PipEnv:
                 ],
             )
         )
+        # fmt: off
         return ShBlock(
             mkdir(self._dir).p,
             Flock(self._dir, wait=900).do(
-                ShIf.isnt()
-                .executable(self.python_path)
-                .then(
-                    ShTry(f"virtualenv --no-download {self.venv}", install_cmd).catch(
-                        echo(f"{PYTHON_VENV_CREATE_ERR} 1>&2"), "false"
+                ShIf.isnt().executable(self.python_path).then(
+                    ShTry(
+                        f"virtualenv --no-download {self.venv}",
+                        install_cmd
+                    ).catch(
+                        echo(f"{PYTHON_VENV_CREATE_ERR} 1>&2"),
+                        f"rm -rf {self.venv}",
+                        "false"
                     )
                 )
             ),
         ).to_str()
+        # fmt: on
 
     def python(self, cmd: str):
         """Ensure existance of venv then run python command
