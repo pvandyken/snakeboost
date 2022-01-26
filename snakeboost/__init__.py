@@ -3,7 +3,7 @@ import sys
 
 from colorama import Fore
 
-__submodules__ = ["pipenv", "xvfb", "script", "boost", "datalad"]
+__submodules__ = ["pipenv", "xvfb", "script", "boost", "tar"]
 
 __ignore__ = ["T"]
 
@@ -27,13 +27,12 @@ from snakeboost.script import (
 from snakeboost.boost import (
     Boost,
 )
-from snakeboost.datalad import (
-    Datalad,
+from snakeboost.tar import (
+    Tar,
 )
 
 __all__ = [
     "Boost",
-    "Datalad",
     "ParseError",
     "PipEnv",
     "Pyscript",
@@ -41,6 +40,7 @@ __all__ = [
     "ScriptDict",
     "SnakemakeArgs",
     "SnakemakeSequenceArg",
+    "Tar",
     "XvfbRun",
     "snakemake_args",
     "snakemake_parser",
@@ -50,14 +50,14 @@ __all__ = [
 
 # The Tar module is dependent on python 3.8, so we restrict this module specifically
 if sys.version_info.major >= 3 and sys.version_info.minor >= 8:
-    from snakeboost.tar import (  # noqa: F401
-        Tar,
+    from snakeboost.datalad import (  # noqa: F401
+        Datalad,
     )
 
-    __all__.append("Tar")
+    __all__.append("Datalad")
 else:
     print(
         f"{Fore.YELLOW}[WARNING]: Snakeboost has only limited support for Python 3.7. "
-        "In particular, the tar module cannot be used. Please upgrade to python 3.8 or "
-        f"higher for full functionality.{Fore.RESET}"
+        "In particular, the datalad module cannot be used. Please upgrade to python "
+        f"3.8 or higher for full functionality.{Fore.RESET}"
     )
