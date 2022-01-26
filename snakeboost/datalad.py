@@ -32,7 +32,7 @@ ParsedFormat = Iterable[Tuple[str, Optional[str], Optional[str], Optional[str]]]
 def _filter_input_output_fields(format_parser: ParsedFormat) -> ParsedFormat:
     for literal, field_name, *specifiers in format_parser:
         if field_name and re.match(r"^(input|output)(\..*)?$", field_name):
-            yield literal, field_name, *specifiers
+            yield (literal, field_name, *specifiers)
             continue
         field_str = get_replacement_field(field_name, *specifiers)
         yield literal + field_str, None, None, None
