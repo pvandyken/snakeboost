@@ -21,7 +21,7 @@ class ScriptDict(UserDict):
         return _mapping(arg, self.keys())
 
 
-PyscriptParam = Union[List[str], ScriptDict]
+PyscriptParam = Union[List[str], ScriptDict, Dict[str, str]]
 
 
 def _get_arg(arg: str, value: Optional[PyscriptParam]):
@@ -29,7 +29,9 @@ def _get_arg(arg: str, value: Optional[PyscriptParam]):
         return f"--{arg} {{{arg}}}"
     if isinstance(value, ScriptDict):
         return f"--{arg} {value.cli_mapping(arg)}"
-    return f"--{arg} " + _mapping(arg, value)
+    if isinstance(value, dict):
+        return f"--{arg}" + " ".join(f"{key}={v}" for key, v in value.items())
+    return f"--{arg} {_mapping(arg, value)}"
 
 
 # pylint: disable=redefined-builtin, attribute-defined-outside-init
