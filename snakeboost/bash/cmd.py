@@ -30,7 +30,8 @@ StringLike = Union[str, Path, ShVar]
 
 
 class ShStatement:
-    pass
+    def to_str(self):
+        return str(self)
 
 
 class ShSetVariable(ShStatement):
@@ -51,14 +52,18 @@ class ShSingleCmd(ShCmd):
 
     def __init__(self, expr: StringLike = ""):
         self.expr = expr
+        self.flags = []
+        self.args = []
 
-    def __or__(self, other: ShCmd):
+    def __or__(self, other: Union[ShCmd, str]):
         if isinstance(other, ShPipe):
             return ShPipe([self, *other])
         return ShPipe([self, other])
 
     def __str__(self):
-        return f"{self.cmd} {self.expr}"
+        flags = f"-{''.join(self.flags)}" if self.flags else ""
+        args = " ".join(self.args) if self.args else ""
+        return f"{self.cmd} {flags} {args} {self.expr}"
 
 
 class find(ShSingleCmd):
@@ -77,7 +82,8 @@ class wc(ShSingleCmd):
     cmd = "wc"
 
     def l(self):  # noqa: E741, E743
-        return wc(f"{self.expr} -l")
+        self.flags.append("l")
+        return self
 
 
 class echo(ShSingleCmd):
@@ -85,7 +91,6 @@ class echo(ShSingleCmd):
 
     def __init__(self, expr: StringLike):
         super().__init__(expr)
-        self.flags = []
 
     def n(self):
         self.flags.append("n")
@@ -101,11 +106,12 @@ class mkdir(ShSingleCmd):
 
     @property
     def p(self):
-        return mkdir(f"{self.expr} -p")
+        self.flags.append("p")
+        return self
 
 
 class ShPipe(UserList, ShCmd):
-    def __or__(self, other: ShCmd):
+    def __or__(self, other: Union[ShCmd, str]):
         if isinstance(other, ShPipe):
             return self.__class__([*self.data, *other])
         return self.__class__([*self.data, other])
@@ -125,13 +131,10 @@ def canonicalize(entities: Iterable[ShEntity]):
     ]
 
 
-class ShBlock:
+class ShBlock(ShStatement):
     def __init__(self, *args: ShEntity, wrap: bool = True):
         self.statements = canonicalize(args)
         self.wrap = wrap
-
-    def to_str(self):
-        return str(self)
 
     def __str__(self):
         if DEBUG:

@@ -10,6 +10,7 @@ from typing import Iterable, Optional, Tuple, Union, cast
 import attr
 import more_itertools as itx
 
+import snakeboost.bash.cmd as sh
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
 
 
@@ -53,11 +54,16 @@ def _construct_script(components: Iterable[Tuple[str, Optional[str]]]):
 @attr.define
 class Boost:
     script_root: Path = attr.ib(converter=Path)
+    debug: bool = False
 
     def __call__(self, *funcs_and_cmd):
         """Pipe a value through a sequence of functions"""
+        sh.DEBUG = self.debug
         core_cmd = funcs_and_cmd[-1]
         cmd = _pipe(*funcs_and_cmd)
+        if self.debug:
+            return cmd
+
         literals, *field_components = zip(*string.Formatter().parse(cmd))
         fields = [
             get_replacement_field(*field_component)
