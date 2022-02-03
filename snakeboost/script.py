@@ -30,7 +30,7 @@ def _get_arg(arg: str, value: Optional[PyscriptParam]):
     if isinstance(value, ScriptDict):
         return f"--{arg} {value.cli_mapping(arg)}"
     if isinstance(value, dict):
-        return f"--{arg}" + " ".join(f"{key}={v}" for key, v in value.items())
+        return f"--{arg} " + " ".join(f"{key}={v}" for key, v in value.items())
     return f"--{arg} {_mapping(arg, value)}"
 
 
