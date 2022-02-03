@@ -7,16 +7,9 @@ from typing import Callable, Iterable, List, Optional, Tuple
 import attr
 import more_itertools as itx
 
-from snakeboost.sh_cmd import ShBlock, ShEntity, StringLike, echo, mkdir
-from snakeboost.utils import (
-    BashWrapper,
-    ShIf,
-    ShTry,
-    cp_timestamp,
-    hash_path,
-    rm_if_exists,
-    silent_mv,
-)
+from snakeboost.bash.cmd import ShBlock, ShEntity, StringLike, echo, mkdir
+from snakeboost.bash.statement import BashWrapper, ShIf, ShTry
+from snakeboost.utils import cp_timestamp, hash_path, rm_if_exists, silent_mv
 
 __all__ = ["Tar"]
 

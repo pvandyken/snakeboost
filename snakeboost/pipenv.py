@@ -4,8 +4,9 @@ import itertools as it
 from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
-from snakeboost.sh_cmd import ShBlock, echo, mkdir
-from snakeboost.utils import Flock, ShIf, ShTry, get_hash
+from snakeboost.bash.cmd import ShBlock, echo, mkdir
+from snakeboost.bash.statement import Flock, ShIf, ShTry
+from snakeboost.utils import get_hash
 
 __all__ = ["PipEnv"]
 

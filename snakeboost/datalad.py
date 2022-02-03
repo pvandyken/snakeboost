@@ -12,16 +12,9 @@ from typing import Iterable, Optional, Tuple
 import attr
 import more_itertools as itx
 
-from snakeboost.sh_cmd import ShBlock, ShVar, echo
-from snakeboost.utils import (
-    Flock,
-    ShFor,
-    ShIf,
-    get_replacement_field,
-    resolve,
-    split,
-    subsh,
-)
+from snakeboost.bash.cmd import ShBlock, ShVar, echo
+from snakeboost.bash.statement import Flock, ShFor, ShIf, subsh
+from snakeboost.utils import get_replacement_field, resolve, split
 
 __all__ = ["Datalad"]
 
