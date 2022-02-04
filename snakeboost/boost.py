@@ -9,7 +9,9 @@ from typing import Iterable, Optional, Tuple, Union, cast
 
 import attr
 import more_itertools as itx
+from colorama import Fore
 
+from snakeboost.bash.cmd import ShBlock
 from snakeboost.bash.globals import Globals
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
 
@@ -51,16 +53,25 @@ def _construct_script(components: Iterable[Tuple[str, Optional[str]]]):
         yield f"{literal}{variable}" if variable else literal
 
 
+def sh_strict():
+    if Globals.DEBUG:
+        return "set -euo pipefail\n"
+    return "set -euo pipefail; "
+
+
 @attr.define
 class Boost:
     script_root: Path = attr.ib(converter=Path)
     debug: bool = False
 
+    # pylint: disable=too-many-locals
     def __call__(self, *funcs_and_cmd):
         """Pipe a value through a sequence of functions"""
         Globals.DEBUG = True
-        core_cmd = funcs_and_cmd[-1]
-        cmd = _pipe(*funcs_and_cmd)
+        *funcs, core_cmd = funcs_and_cmd
+        if isinstance(core_cmd, str):
+            core_cmd = (core_cmd,)
+        cmd = sh_strict() + _pipe(*funcs, ShBlock(*core_cmd, wrap=False).to_str())
         if self.debug:
             return cmd
 
@@ -71,7 +82,7 @@ class Boost:
         ]
         unique_fields = [*filter(None, itx.unique_everseen(fields))]
         field_subs = {field: f"${{{i + 1}}}" for i, field in enumerate(unique_fields)}
-        script = "#!/bin/bash\nset -euo pipefail\n" + "".join(
+        script = "#!/bin/bash\n" + "".join(
             _construct_script(
                 (literal, field_subs[field] if field in field_subs else None)
                 for literal, field in zip(cast(Tuple[str], literals), fields)
@@ -88,4 +99,12 @@ class Boost:
         quote_wrapped_fields = [f"'{field}'" for field in unique_fields]
 
         calling_cmd = f"{script_path} " + " ".join(quote_wrapped_fields)
-        return f"# Snakeboost enhanced script:\n# > {core_cmd}\n\n{calling_cmd}\n"
+
+        colored_core = [
+            f"{literal or ''}{Fore.CYAN}{field}{Fore.YELLOW}"
+            for literal, field in zip(literals, fields)
+        ]
+        return (
+            f"# Snakeboost enhanced script:\n# > {colored_core}\n\n"
+            f"{Fore.WHITE}{calling_cmd}\n{Fore.RESET}"
+        )
