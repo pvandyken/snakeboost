@@ -9,7 +9,6 @@ from typing import Iterable, Optional, Tuple, Union, cast
 
 import attr
 import more_itertools as itx
-from colorama import Fore
 
 from snakeboost.bash.cmd import ShBlock
 from snakeboost.bash.globals import Globals
@@ -101,10 +100,10 @@ class Boost:
         calling_cmd = f"{script_path} " + " ".join(quote_wrapped_fields)
 
         colored_core = [
-            f"{literal or ''}{Fore.CYAN}{field}{Fore.YELLOW}"
+            f"{literal or ''}\\033[0;94m{field}\\033[0;33m"
             for literal, field in zip(literals, fields)
         ]
         return (
             f"# Snakeboost enhanced script:\n# > {colored_core}\n\n"
-            f"{Fore.WHITE}{calling_cmd}\n{Fore.RESET}"
+            f"\\033[0;37m{calling_cmd}\n\\033[0m"
         )
