@@ -108,7 +108,7 @@ class Datalad:
                 # separated paths (e.g. in the case of {input} -> /path/1 /path/2
                 # etc)
                 ShFor(
-                    _path := ShVar("path"),
+                    _path := ShVar(),
                     _in=split(" ".join(field for field in value)),
                 )
                 >> (
@@ -129,22 +129,23 @@ class Datalad:
         # msg = f"-m '{quote_escape(self._msg)}'" if self._msg else ""
         cli_args = f"-d {resolve(self.dataset_root)} -r"
 
+        # fmt: off
         return ShBlock(
             (
-                (inputs := ShVar("inputs")).set(
-                    file_list["inputs"] if "inputs" in file_list else '""'
-                ),
-                (outputs := ShVar("outputs")).set(
+                inputs := ShVar(file_list["inputs"] if "inputs" in file_list else '""'),
+                outputs := ShVar(
                     file_list["outputs"] if "outputs" in file_list else '""'
                 ),
                 Flock(self.dataset_root, wait=900).do(
-                    ShIf.not_empty(inputs)
-                    >> (f"git -C {resolve(self.dataset_root)} " f"annex get {inputs}"),
+                    ShIf.not_empty(inputs) >> (
+                        f"git -C {resolve(self.dataset_root)} annex get {inputs}"
+                    ),
                     ShIf.not_empty(outputs) >> f"datalad unlock {cli_args} {outputs}",
                 ),
             ),
             cmd,
         ).to_str()
+        # fmt: on
 
 
 if __name__ == "__main__":

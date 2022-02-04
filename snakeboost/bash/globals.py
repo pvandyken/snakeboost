@@ -3,4 +3,4 @@ from __future__ import absolute_import
 
 
 class Globals:
-    DEBUG: bool = False
+    DEBUG: bool = True

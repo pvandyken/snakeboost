@@ -1,46 +1,62 @@
 # pylint: disable=missing-class-docstring, invalid-name
 from __future__ import absolute_import
 
-import random
-import string
+import itertools as it
 import textwrap
 from collections import UserList
 from pathlib import Path
-from typing import Iterable, Tuple, Union
+from string import ascii_lowercase
+from typing import Iterable, Optional, Tuple, Union
 
 from snakeboost.bash.globals import Globals
 
 
+def var_names():
+    prefix_generator = var_names()
+    prefix = ""
+    for i, l in enumerate(it.chain.from_iterable(it.repeat(ascii_lowercase))):
+        if i > 0 and i % len(ascii_lowercase) == 0:
+            # pylint: disable=stop-iteration-return
+            prefix = next(prefix_generator)
+        yield prefix + l
+
+
 class ShVar:
-    def __init__(self, name: str):
-        self.name = (
-            name
-            if name
-            else ("".join(random.choice(string.ascii_letters) for _ in range(8)))
-        )
+    name_generator = var_names()
+    active_names = set()
+
+    def __init__(self, value: Optional["StringLike"] = None, *, name: str = None):
+        if name in self.active_names:
+            raise ValueError(f"{name} has already been defined, perhaps automatically")
+        if name:
+            self.name = name
+        else:
+            candidate = next(self.name_generator)
+            while candidate in self.active_names:
+                candidate = next(self.name_generator)
+            self.name = candidate
+        self.value = value
 
     def __str__(self):
         return f"${self.name}"
 
     def set(self, value: "StringLike"):
-        return ShSetVariable(self.name, value)
+        self.value = value
+        return self
+
+    @property
+    def set_statement(self):
+        if self.value is None:
+            return f"{self.name}=''"
+        return f"{self.name}={self.value}"
 
 
-StringLike = Union[str, Path, ShVar]
+StringLike = Union[str, Path, ShVar]  # type: ignore
 
 
 class ShStatement:
     def to_str(self):
         return str(self)
-
-
-class ShSetVariable(ShStatement):
-    def __init__(self, name: str, value: StringLike):
-        self.name = name
-        self.value = value
-
-    def __str__(self):
-        return f"{self.name}={self.value}"
 
 
 class ShCmd(ShStatement):
@@ -120,12 +136,16 @@ class ShPipe(UserList, ShCmd):
         return " | ".join(str(data) for data in self.data)
 
 
-ShEntity = Union[str, ShStatement, "ShBlock", Tuple["ShEntity", ...]]
+ShEntity = Union[str, ShStatement, ShVar, "ShBlock", Tuple["ShEntity", ...]]
 
 
 def canonicalize(entities: Iterable[ShEntity]):
     return [
-        ShBlock(*entity) if isinstance(entity, tuple) else entity
+        ShBlock(*entity)
+        if isinstance(entity, tuple)
+        else entity.set_statement
+        if isinstance(entity, ShVar)
+        else entity
         for entity in entities
         if entity
     ]

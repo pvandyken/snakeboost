@@ -6,7 +6,6 @@ from snakeboost.bash.cmd import (
     ShCmd,
     ShEntity,
     ShPipe,
-    ShSetVariable,
     ShSingleCmd,
     ShStatement,
     ShVar,
@@ -15,6 +14,7 @@ from snakeboost.bash.cmd import (
     echo,
     find,
     mkdir,
+    var_names,
     wc,
 )
 from snakeboost.bash.statement import (
@@ -44,7 +44,6 @@ __all__ = [
     "ShIfBody",
     "ShIfNot",
     "ShPipe",
-    "ShSetVariable",
     "ShSingleCmd",
     "ShStatement",
     "ShTry",
@@ -56,6 +55,7 @@ __all__ = [
     "find",
     "mkdir",
     "subsh",
+    "var_names",
     "wc",
 ]
 
