@@ -126,6 +126,13 @@ class mkdir(ShSingleCmd):
         return self
 
 
+class mv(ShSingleCmd):
+    cmd = "mv"
+
+    def __init__(self, _from: StringLike, _to: StringLike, /):
+        super().__init__(f"{_from} {_to}")
+
+
 class ShPipe(UserList, ShCmd):
     def __or__(self, other: Union[ShCmd, str]):
         if isinstance(other, ShPipe):
