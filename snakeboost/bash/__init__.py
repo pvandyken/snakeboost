@@ -14,7 +14,7 @@ from snakeboost.bash.cmd import (
     echo,
     find,
     mkdir,
-    var_names,
+    mv,
     wc,
 )
 from snakeboost.bash.statement import (
@@ -54,8 +54,8 @@ __all__ = [
     "echo",
     "find",
     "mkdir",
+    "mv",
     "subsh",
-    "var_names",
     "wc",
 ]
 

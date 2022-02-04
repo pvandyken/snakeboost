@@ -26,6 +26,7 @@ from snakeboost.script import (
 )
 from snakeboost.boost import (
     Boost,
+    sh_strict,
 )
 from snakeboost.tar import (
     Tar,
@@ -42,6 +43,7 @@ __all__ = [
     "SnakemakeSequenceArg",
     "Tar",
     "XvfbRun",
+    "sh_strict",
     "snakemake_args",
     "snakemake_parser",
 ]

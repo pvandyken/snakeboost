@@ -11,8 +11,8 @@ from typing import Iterable, Optional, Tuple, Union
 from snakeboost.bash.globals import Globals
 
 
-def var_names():
-    prefix_generator = var_names()
+def _var_names():
+    prefix_generator = _var_names()
     prefix = ""
     for i, l in enumerate(it.chain.from_iterable(it.repeat(ascii_lowercase))):
         if i > 0 and i % len(ascii_lowercase) == 0:
@@ -22,7 +22,7 @@ def var_names():
 
 
 class ShVar:
-    name_generator = var_names()
+    name_generator = _var_names()
     active_names = set()
 
     def __init__(self, value: Optional["StringLike"] = None, *, name: str = None):
