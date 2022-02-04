@@ -58,6 +58,20 @@ def sh_strict():
     return "set -euo pipefail; "
 
 
+def _colorize_cmd(cmd: str):
+    literals, *field_components = zip(*string.Formatter().parse(cmd))
+    fields = [
+        get_replacement_field(*field_component)
+        for field_component in zip(*field_components)
+    ]
+    return "".join(
+        [
+            f"{literal or ''}\033[0;94m{field}\033[0;33m"
+            for literal, field in zip(literals, fields)
+        ]
+    )
+
+
 @attr.define
 class Boost:
     script_root: Path = attr.ib(converter=Path)
@@ -70,7 +84,8 @@ class Boost:
         *funcs, core_cmd = funcs_and_cmd
         if isinstance(core_cmd, str):
             core_cmd = (core_cmd,)
-        cmd = sh_strict() + _pipe(*funcs, ShBlock(*core_cmd, wrap=False).to_str())
+        core_cmd = ShBlock(*core_cmd, wrap=False).to_str()
+        cmd = sh_strict() + _pipe(*funcs, core_cmd)
         if self.debug:
             return cmd
 
@@ -99,11 +114,7 @@ class Boost:
 
         calling_cmd = f"{script_path} " + " ".join(quote_wrapped_fields)
 
-        colored_core = [
-            f"{literal or ''}\\033[0;94m{field}\\033[0;33m"
-            for literal, field in zip(literals, fields)
-        ]
         return (
-            f"# Snakeboost enhanced script:\n# > {colored_core}\n\n"
-            f"\\033[0;37m{calling_cmd}\n\\033[0m"
+            f"# Snakeboost enhanced script:\n# > {_colorize_cmd(core_cmd)}\n\n"
+            f"\033[0;37m{calling_cmd}\n\033[0m"
         )
