@@ -5,7 +5,6 @@ import textwrap
 from typing import NamedTuple, Tuple, Union
 
 from snakeboost.bash.cmd import (
-    DEBUG,
     ShBlock,
     ShCmd,
     ShEntity,
@@ -14,6 +13,7 @@ from snakeboost.bash.cmd import (
     StringLike,
     canonicalize,
 )
+from snakeboost.bash.globals import Globals
 from snakeboost.bash.utils import quote_escape
 
 BashWrapper = NamedTuple(
@@ -35,21 +35,21 @@ def _block_args(cmd: Tuple[ShEntity]):
 class ShIfBody(ShStatement):
     def __init__(self, preamble: str, cmds: Tuple[ShEntity]):
         body = _block_args(cmds)
-        if DEBUG:
+        if Globals.DEBUG:
             statement = f"\n{textwrap.indent(body, '    ')}"
         else:
             statement = body
         self.expr = f"{preamble} {statement}"
 
     def __str__(self):
-        if DEBUG:
+        if Globals.DEBUG:
             closer = "\nfi"
         else:
             closer = "; fi"
         return f"{self.expr}{closer}"
 
     def els(self, *cmd: ShEntity):
-        if DEBUG:
+        if Globals.DEBUG:
             return self.__class__(f"{self.expr}\nelse", cmd)
         return self.__class__(f"{self.expr}; else", cmd)
 
@@ -154,7 +154,7 @@ class ShTry(ShStatement):
 
 def subsh(*args: ShEntity):
     cmd = _block_args(args)
-    if DEBUG and len(cmd) > 40:
+    if Globals.DEBUG and len(cmd) > 40:
         return f"$(\n{textwrap.indent(cmd, '    ')}\n)"
     return f"$({cmd})"
 
@@ -166,7 +166,7 @@ class ShFor(ShStatement):
 
     def do(self, *cmds: ShEntity):
         body = _block_args(cmds)
-        if DEBUG:
+        if Globals.DEBUG:
             statement = f"\n{textwrap.indent(body, '    ')}\ndone"
         else:
             statement = f"{body}; done"
@@ -188,6 +188,6 @@ class Flock:
     def do(self, *cmds: ShEntity):
         cmd = quote_escape(_block_args(cmds))
         suffix = f"| flock -w {self._wait} {self._file} /bin/bash"
-        if DEBUG:
+        if Globals.DEBUG:
             return f"echo '\n{textwrap.indent(cmd, '    ')}\n' {suffix}"
         return f"echo '{cmd}' {suffix}"

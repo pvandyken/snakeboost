@@ -3,7 +3,8 @@ from __future__ import absolute_import
 
 import textwrap
 
-from snakeboost.bash.cmd import DEBUG, ShSingleCmd, StringLike
+from snakeboost.bash.cmd import ShSingleCmd, StringLike
+from snakeboost.bash.globals import Globals
 from snakeboost.bash.utils import quote_escape
 
 
@@ -15,7 +16,7 @@ class AwkBlock:
         return str(self)
 
     def __str__(self):
-        if DEBUG:
+        if Globals.DEBUG:
             sep = ";\n"
             wrap = lambda s: f"{{{{\n{textwrap.indent(s, '    ')}\n}}}}"  # noqa: E731
         else:

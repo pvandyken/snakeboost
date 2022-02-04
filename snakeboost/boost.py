@@ -10,7 +10,7 @@ from typing import Iterable, Optional, Tuple, Union, cast
 import attr
 import more_itertools as itx
 
-import snakeboost.bash.cmd as sh
+from snakeboost.bash.globals import Globals
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
 
 
@@ -58,7 +58,7 @@ class Boost:
 
     def __call__(self, *funcs_and_cmd):
         """Pipe a value through a sequence of functions"""
-        sh.DEBUG = self.debug
+        Globals.DEBUG = True
         core_cmd = funcs_and_cmd[-1]
         cmd = _pipe(*funcs_and_cmd)
         if self.debug:
@@ -71,7 +71,7 @@ class Boost:
         ]
         unique_fields = [*filter(None, itx.unique_everseen(fields))]
         field_subs = {field: f"${{{i + 1}}}" for i, field in enumerate(unique_fields)}
-        script = "#!/bin/bash\n" + "".join(
+        script = "#!/bin/bash\nset -euo pipefail\n" + "".join(
             _construct_script(
                 (literal, field_subs[field] if field in field_subs else None)
                 for literal, field in zip(cast(Tuple[str], literals), fields)

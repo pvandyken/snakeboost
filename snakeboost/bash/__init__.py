@@ -2,7 +2,6 @@ __submodules__ = ["cmd", "statement", "awk"]
 
 # <AUTOGEN_INIT>
 from snakeboost.bash.cmd import (
-    DEBUG,
     ShBlock,
     ShCmd,
     ShEntity,
@@ -36,7 +35,6 @@ from snakeboost.bash.awk import (
 __all__ = [
     "AwkBlock",
     "BashWrapper",
-    "DEBUG",
     "Flock",
     "ShBlock",
     "ShCmd",

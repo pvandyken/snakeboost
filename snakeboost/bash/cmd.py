@@ -8,7 +8,7 @@ from collections import UserList
 from pathlib import Path
 from typing import Iterable, Tuple, Union
 
-DEBUG = False
+from snakeboost.bash.globals import Globals
 
 
 class ShVar:
@@ -137,7 +137,7 @@ class ShBlock(ShStatement):
         self.wrap = wrap
 
     def __str__(self):
-        if DEBUG:
+        if Globals.DEBUG:
             sep = "\n"
             wrap = lambda s: f"(\n{textwrap.indent(s, '    ')}\n)"  # noqa: E731
         else:
