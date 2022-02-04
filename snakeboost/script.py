@@ -6,10 +6,6 @@ from collections import UserDict
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, TypeVar, Union
 
-import attr
-
-from snakeboost.pipenv import PipEnv
-
 
 def _mapping(arg: str, values: Iterable[str]):
     return " ".join([f"{v}={{{arg}.{v}}}" for v in values])
@@ -35,7 +31,7 @@ def _get_arg(arg: str, value: Optional[PyscriptParam]):
 
 
 # pylint: disable=redefined-builtin, attribute-defined-outside-init
-@attr.define(slots=False)
+# pylint: disable=too-many-instance-attributes
 class Pyscript:
     """Functions to run python scripts
 
@@ -44,8 +40,8 @@ class Pyscript:
     any other Snakemake data can be passed to the script.
 
     Pyscript can be combined with any other snakeboost function. It should take the
-    place of the bash script. It should never be directly combined with Pipenv, however.
-    Instead, supply the Pipenv to the venv parameter when initializing the Pyscript.
+    place of the bash script. It can also be combined with Pipenv by wrapping it with
+    the Pipenv.script() function.
 
     Currently, only items serializable as strings can be provided. This includes text,
     numbers, Paths, etc. Complex objects may be supported in the future.
@@ -90,14 +86,15 @@ class Pyscript:
         the script path provided later, should form a fully resolved path to the script,
         e.g. snakefile_dir/script_path.py
 
-    venv : PipEnv, optional
-        PipEnv with which to call the script
+    python_path : str or Path, keyword-only, optional
+        python executable with which to call the script
     """
 
-    snakefile_dir: Path = attr.ib(converter=Path)
-    venv: Optional[PipEnv] = None
-
-    def __attrs_post_init__(self):
+    def __init__(
+        self, snakefile_dir: Union[str, Path], *, python_path: Union[str, Path] = None
+    ):
+        self.snakefile_dir = Path(snakefile_dir)
+        self.python_path = Path(python_path) if python_path else None
         self._input = None
         self._output = None
         self._params = None
@@ -245,10 +242,10 @@ class Pyscript:
                 "Be sure to define paths relative to the app root, not the workflow "
                 "root."
             )
-        if self.venv is None:
+        if self.python_path is None:
             executable = "python"
         else:
-            executable = f"{self.venv.get_venv} && {self.venv.python_path}"
+            executable = self.python_path
         args = " ".join(
             [
                 _get_arg(arg, value)
