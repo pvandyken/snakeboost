@@ -44,7 +44,7 @@ def cp_timestamp(src: str, dest: str):
 
 
 def hash_path(name: str):
-    return f"$(realpath '{quote_escape(name)}' | md5sum | awk '{{{{print $1}}}}')"
+    return f"$(realpath -s '{quote_escape(name)}' | md5sum | awk '{{{{print $1}}}}')"
 
 
 def rm_if_exists(path: StringLike, recursive: bool = False):
