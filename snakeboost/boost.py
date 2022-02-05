@@ -72,21 +72,27 @@ def _colorize_cmd(cmd: str):
     )
 
 
+def _parse_boost_args(args):
+    *funcs, core_cmd = args
+    if isinstance(core_cmd, str):
+        return funcs, ShBlock(core_cmd, wrap=False).to_str()
+    return funcs, ShBlock(*core_cmd, wrap=False).to_str()
+
+
 @attr.define
 class Boost:
     script_root: Path = attr.ib(converter=Path)
     debug: bool = False
+    disable_script: bool = attr.ib(kw_only=True, default=False)
 
     # pylint: disable=too-many-locals
     def __call__(self, *funcs_and_cmd):
         """Pipe a value through a sequence of functions"""
-        Globals.DEBUG = True
-        *funcs, core_cmd = funcs_and_cmd
-        if isinstance(core_cmd, str):
-            core_cmd = (core_cmd,)
-        core_cmd = ShBlock(*core_cmd, wrap=False).to_str()
+        Globals.DEBUG = self.debug
+        *funcs, core_cmd = _parse_boost_args(funcs_and_cmd)
         cmd = sh_strict() + _pipe(*funcs, core_cmd)
-        if self.debug:
+
+        if self.disable_script:
             return cmd
 
         literals, *field_components = zip(*string.Formatter().parse(cmd))
@@ -110,12 +116,16 @@ class Boost:
             f.write(script)
         _chmod_rwx(script_path)
 
-        quote_wrapped_fields = [f"'{field}'" for field in unique_fields]
+        calling_cmd = f"{script_path} " + " ".join(
+            [f"'{field}'" for field in unique_fields]
+        )
 
-        calling_cmd = f"{script_path} " + " ".join(quote_wrapped_fields)
+        if self.debug:
+            cmd_wrapped = f"\n\n{calling_cmd}"
+        else:
+            cmd_wrapped = f"\033[?1049h\n\n{calling_cmd}\n#\033?[1049l"
 
         return (
             f"# Snakeboost enhanced script:\n# > {_colorize_cmd(core_cmd)}"
-            "\033[0m\033[?1049h\n\n"
-            f"{calling_cmd}\n#\033[?1049l"
+            f"\033[0m{cmd_wrapped}"
         )
