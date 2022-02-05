@@ -1,16 +1,9 @@
-__submodules__ = ["cmd", "statement", "awk"]
+__submodules__ = ["cmd", "statement", "awk", "abstract"]
 
 # <AUTOGEN_INIT>
 from snakeboost.bash.cmd import (
-    ShBlock,
-    ShCmd,
-    ShEntity,
     ShPipe,
     ShSingleCmd,
-    ShStatement,
-    ShVar,
-    StringLike,
-    canonicalize,
     echo,
     find,
     mkdir,
@@ -20,16 +13,25 @@ from snakeboost.bash.cmd import (
 from snakeboost.bash.statement import (
     BashWrapper,
     Flock,
+    ShBlock,
+    ShEntity,
     ShFor,
     ShIf,
     ShIfBody,
     ShIfNot,
     ShTry,
+    ShVar,
+    StringLike,
+    canonicalize,
     subsh,
 )
 from snakeboost.bash.awk import (
     AwkBlock,
     awk,
+)
+from snakeboost.bash.abstract import (
+    ShCmd,
+    ShStatement,
 )
 
 __all__ = [

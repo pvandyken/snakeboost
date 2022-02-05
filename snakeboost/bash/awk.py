@@ -3,8 +3,9 @@ from __future__ import absolute_import
 
 import textwrap
 
-from snakeboost.bash.cmd import ShSingleCmd, StringLike
+from snakeboost.bash.cmd import ShSingleCmd
 from snakeboost.bash.globals import Globals
+from snakeboost.bash.statement import StringLike
 from snakeboost.bash.utils import quote_escape
 
 

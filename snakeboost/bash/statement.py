@@ -1,20 +1,70 @@
 # pylint: disable=missing-class-docstring, invalid-name
 from __future__ import absolute_import
 
+import itertools as it
 import textwrap
-from typing import NamedTuple, Tuple, Union
+from pathlib import Path
+from string import ascii_lowercase
+from typing import Iterable, NamedTuple, Optional, Tuple, Union
 
-from snakeboost.bash.cmd import (
-    ShBlock,
-    ShCmd,
-    ShEntity,
-    ShStatement,
-    ShVar,
-    StringLike,
-    canonicalize,
-)
+from snakeboost.bash.abstract import ShCmd, ShStatement
 from snakeboost.bash.globals import Globals
 from snakeboost.bash.utils import quote_escape
+
+
+def _var_names():
+    prefix_generator = _var_names()
+    prefix = ""
+    for i, l in enumerate(it.chain.from_iterable(it.repeat(ascii_lowercase))):
+        if i > 0 and i % len(ascii_lowercase) == 0:
+            # pylint: disable=stop-iteration-return
+            prefix = next(prefix_generator)
+        yield prefix + l
+
+
+class ShVar:
+    name_generator = _var_names()
+    active_names = set()
+
+    def __init__(self, value: Optional["ShEntity"] = None, *, name: str = None):
+        if name in self.active_names:
+            raise ValueError(f"{name} has already been defined, perhaps automatically")
+        if name:
+            self.name = name
+        else:
+            candidate = next(self.name_generator)
+            while candidate in self.active_names:
+                candidate = next(self.name_generator)
+            self.name = candidate
+        self.value = value
+
+    def __str__(self):
+        return f"${self.name}"
+
+    def set(self, value: Union["StringLike", ShCmd]):
+        self.value = value
+        return self
+
+    @property
+    def set_statement(self):
+        if self.value is None:
+            return f"{self.name}=''"
+        if any(
+            [
+                isinstance(self.value, str),
+                isinstance(self.value, ShVar),
+                isinstance(self.value, Path),
+            ]
+        ):
+            return f"{self.name}={self.value}"
+        return f"{self.name}={subsh(self.value)}"  # type: ignore
+
+
+StringLike = Union[str, Path, ShVar]  # type: ignore
+
+
+ShEntity = Union[str, ShStatement, ShVar, "ShBlock", Tuple["ShEntity", ...]]
+
 
 BashWrapper = NamedTuple(
     "BashWrapper",
@@ -24,6 +74,37 @@ BashWrapper = NamedTuple(
         ("failure", Tuple[ShEntity]),
     ],
 )
+
+
+def canonicalize(entities: Iterable[ShEntity]):
+    return [
+        ShBlock(*entity)
+        if isinstance(entity, tuple)
+        else entity.set_statement
+        if isinstance(entity, ShVar)
+        else entity
+        for entity in entities
+        if entity
+    ]
+
+
+class ShBlock(ShStatement):
+    def __init__(self, *args: ShEntity, wrap: bool = True):
+        self.statements = canonicalize(args)
+        self.wrap = wrap
+
+    def __str__(self):
+        if Globals.DEBUG:
+            sep = "\n"
+            wrap = lambda s: f"(\n{textwrap.indent(s, '    ')}\n)"  # noqa: E731
+        else:
+            sep = "; "
+            wrap = lambda s: f"( {s} )"  # noqa: E731
+
+        body = sep.join(str(statement) for statement in self.statements)
+        if self.wrap:
+            return wrap(body)
+        return body
 
 
 def _block_args(cmd: Tuple[ShEntity]):
@@ -62,7 +143,7 @@ class ShIfBody(ShStatement):
 class ShIf:
     def __init__(self, expr: Union[StringLike, ShCmd] = ""):
         if isinstance(expr, ShCmd):
-            self.expr = subsh(expr)
+            self.expr = f'"{subsh(expr)}"'
         else:
             self.expr = expr
 
@@ -79,6 +160,16 @@ class ShIf:
 
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
+
+    def eq(self, expr: Union[StringLike, int, ShCmd]):
+        if isinstance(expr, ShCmd):
+            expr = f'"{subsh(expr)}"'
+        return self.__class__(f"{self.expr} == {expr}")
+
+    def ne(self, expr: Union[StringLike, int, ShCmd]):
+        if isinstance(expr, ShCmd):
+            expr = f'"{subsh(expr)}"'
+        return self.__class__(f"{self.expr} != {expr}")
 
     @classmethod
     def isnt(cls):
@@ -159,20 +250,29 @@ def subsh(*args: ShEntity):
     return f"$({cmd})"
 
 
-class ShFor(ShStatement):
+class ShForBody(ShStatement):
+    def __init__(self, var: StringLike, _in: StringLike, do: str):
+        self.var = var
+        self._in = _in
+        self.do = do
+
+    def __str__(self):
+        if Globals.DEBUG:
+            statement = f"\n{textwrap.indent(self.do, '    ')}\ndone"
+        else:
+            statement = f"{self.do}; done"
+
+        var_name = self.var.name if isinstance(self.var, ShVar) else self.var
+        return f"for {var_name} in {self._in}; do {statement}"
+
+
+class ShFor:
     def __init__(self, var: StringLike, _in: StringLike):
         self.var = var
         self._in = _in
 
     def do(self, *cmds: ShEntity):
-        body = _block_args(cmds)
-        if Globals.DEBUG:
-            statement = f"\n{textwrap.indent(body, '    ')}\ndone"
-        else:
-            statement = f"{body}; done"
-
-        var_name = self.var.name if isinstance(self.var, ShVar) else self.var
-        return f"for {var_name} in {self._in}; do {statement}"
+        return ShForBody(self.var, self._in, _block_args(cmds))
 
     def __rshift__(self, cmd: ShEntity):
         if isinstance(cmd, tuple):
