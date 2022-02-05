@@ -64,9 +64,9 @@ def _colorize_cmd(cmd: str):
         get_replacement_field(*field_component)
         for field_component in zip(*field_components)
     ]
-    return "".join(
+    return "\033[0m" + "".join(
         [
-            f"{literal or ''}\033[0;94m{field}\033[0;33m"
+            f"{literal or ''}\033[0;33m'{field}'\033[0;37m"
             for literal, field in zip(literals, fields)
         ]
     )
@@ -115,6 +115,7 @@ class Boost:
         calling_cmd = f"{script_path} " + " ".join(quote_wrapped_fields)
 
         return (
-            f"# Snakeboost enhanced script:\n# > {_colorize_cmd(core_cmd)}\n\n"
-            f"\033[0;37m{calling_cmd}\n\033[0m"
+            f"# Snakeboost enhanced script:\n# > {_colorize_cmd(core_cmd)}"
+            "\033[0m\033[?1049h\n\n"
+            f"{calling_cmd}\n#\033[?1049l"
         )

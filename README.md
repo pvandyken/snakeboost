@@ -197,20 +197,44 @@ assert snakemake.input == {
 }
 ```
 
-Finally, `Pyscript` is easily combined with a pipenv by supplying the env object as an argument to the `Pyscript` constructor:
+Finally, `Pyscript` is easily combined with Pipenv. Just call `pipenv.script()` with your `Pyscript`:
 
 ```python
 my_env = Pipenv("/tmp", packages=["snakeboost"])
-my_script = Pyscript(workflow.basedir, my_env)
+my_script = my_env.script(Pyscript(workflow.basedir, my_env))
 ```
 
-Note that `Pyscript` and `Pipenv` must be combined in the above way.
-`Pyscript` should not be nested under a call of a `Pipenv` method:
+Or using `boost()`:
+
+```python
+rule with_pipenv_script:
+    shell:
+        boost(
+            my_env.script,
+            Pyscript(workflow.basedir)("scripts/my_script.py")
+
+        )
+```
+
+You can also directly pass any Python executable path to pyscript.
+This is useful if your Pyscript is part of a larger Bash Script.
+Just remember that this will not automatically create your environment, so be sure to initialize the environment before the command begins!
 
 ```python
 # Don't do this!! You'll just get an error.
-rule mistake:
+rule with_python_path:
     shell:
+        boost(
+            my_env.get_venv,
+            (
+                "some bash command",
+                "some other bash command",
+                Pyscript(workflow.basedir)(
+                    "scripts/my_script.py",
+                    python_path=my_env.python_path
+                )
+            )
+        )
         my_env.python(
             Pyscript(workflow.basedir)("scripts/my_script.py")
         )
