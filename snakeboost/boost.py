@@ -10,8 +10,8 @@ from typing import Iterable, Optional, Tuple, Union, cast
 import attr
 import more_itertools as itx
 
-from snakeboost.bash.cmd import ShBlock
 from snakeboost.bash.globals import Globals
+from snakeboost.bash.statement import ShBlock
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
 
 
@@ -66,7 +66,7 @@ def _colorize_cmd(cmd: str):
     ]
     return "\033[0m" + "".join(
         [
-            f"{literal or ''}\033[0;33m'{field}'\033[0;37m"
+            f"{literal or ''}" + (f"\033[0;33m'{field}'\033[0;37m" if field else "")
             for literal, field in zip(literals, fields)
         ]
     )
@@ -89,7 +89,7 @@ class Boost:
     def __call__(self, *funcs_and_cmd):
         """Pipe a value through a sequence of functions"""
         Globals.DEBUG = self.debug
-        *funcs, core_cmd = _parse_boost_args(funcs_and_cmd)
+        funcs, core_cmd = _parse_boost_args(funcs_and_cmd)
         cmd = sh_strict() + _pipe(*funcs, core_cmd)
 
         if self.disable_script:
@@ -123,9 +123,23 @@ class Boost:
         if self.debug:
             cmd_wrapped = f"\n\n{calling_cmd}"
         else:
-            cmd_wrapped = f"\033[?1049h\n\n{calling_cmd}\n#\033?[1049l"
+            cmd_wrapped = f"\033[?1049h\n\n{calling_cmd}\n#\033[?1049l"
 
         return (
-            f"# Snakeboost enhanced script:\n# > {_colorize_cmd(core_cmd)}"
+            f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n# > "
+            f"{_colorize_cmd(core_cmd)}"
             f"\033[0m{cmd_wrapped}"
         )
+
+
+if __name__ == "__main__":
+    from snakeboost import PipEnv, Tar, XvfbRun
+
+    print(
+        Boost("/tmp", disable_script=True, debug=True)(
+            XvfbRun(),
+            Tar("/tmp").using(inputs=["{input}"]),
+            PipEnv("/tmp", packages=["flake8, pylint, black"]).script,
+            "flake8 {input}/script.py",
+        ).format(input="/path/to/my/archive.tar.gz", jobid=1)
+    )
