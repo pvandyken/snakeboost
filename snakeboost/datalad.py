@@ -12,8 +12,8 @@ from typing import Iterable, Optional, Tuple
 import attr
 import more_itertools as itx
 
-from snakeboost.bash.cmd import ShBlock, ShVar, echo
-from snakeboost.bash.statement import Flock, ShFor, ShIf, subsh
+from snakeboost.bash.cmd import echo
+from snakeboost.bash.statement import Flock, ShBlock, ShFor, ShIf, ShVar, subsh
 from snakeboost.utils import get_replacement_field, resolve, split
 
 __all__ = ["Datalad"]
@@ -103,7 +103,7 @@ class Datalad:
         }
 
         file_list = {
-            key: subsh(
+            key: (
                 # Loop through the field in case it evaluates to a list of space
                 # separated paths (e.g. in the case of {input} -> /path/1 /path/2
                 # etc)
