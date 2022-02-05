@@ -10,13 +10,8 @@ from snakeboost.utils import quote_escape
 class XvfbRun:
     """Functions to enable virtual x11 servers on compute clusters
 
-    Attributes
-    ----------
-    active : bool
-        When false, disables the function and returns the command unchanged
+    xvfb-run is only used if $DISPLAY is not set
     """
-
-    active: bool
 
     def __call__(self, cmd: str):
         """Start a virtual x11 server on compute clusters
@@ -35,6 +30,7 @@ class XvfbRun:
         str
             The modified shell script
         """
-        if self.active:
-            return f"echo '{quote_escape(cmd)}' | xvfb-run -a bash"
-        return cmd
+        return (
+            f"echo '{quote_escape(cmd)}' | "
+            "$([ -z $DISPLAY ] && echo 'xvfb-run -a ') bash"
+        )
