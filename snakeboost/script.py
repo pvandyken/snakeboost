@@ -48,46 +48,44 @@ class Pyscript:
 
     The data will be provided to the script via SnakemakeArgs.
 
-    Example
-    -------
-    To preserve named data, such as:
+    Example:
+        To preserve named data, such as:
 
-    ```
-    input:
-        first="/path/to/first",
-        second="/path/to/second"
-    ```
-
-    annotations must be provided. There are two methods for this. The first is to
-    provide the names of data when calling the script. See the __call__() method for
-    more details. The second is to annotate each type of data when defining it in
-    the rule using the corresponding Pyscript method. For example:
-
-    ```
-    pyscript = Pyscript(snakemake_dir)
-    rule rule_name:
+        ```
         input:
-            **pyscript.input(
-                first="/path/to/first",
-                second="/path/to/second"
-            )
-        shell:
-            pyscript("scripts/script_to_run.py")
-    ```
+            first="/path/to/first",
+            second="/path/to/second"
+        ```
 
-    Here, the two inputs would be passed to the script under the names "first" and
-    "second". Note that the double asterisk (**) is NECESSARY to properly unpack the
-    dict returned by the method.q
+        annotations must be provided. There are two methods for this. The first is to
+        provide the names of data when calling the script. See the __call__() method for
+        more details. The second is to annotate each type of data when defining it in
+        the rule using the corresponding Pyscript method. For example:
 
-    Parameters
-    ----------
-    snakefile_dir : Path or str
-        Path to the snakemake app directory or Snakefile directory. This, combined with
-        the script path provided later, should form a fully resolved path to the script,
-        e.g. snakefile_dir/script_path.py
+        ```
+        pyscript = Pyscript(snakemake_dir)
+        rule rule_name:
+            input:
+                **pyscript.input(
+                    first="/path/to/first",
+                    second="/path/to/second"
+                )
+            shell:
+                pyscript("scripts/script_to_run.py")
+        ```
 
-    python_path : str or Path, keyword-only, optional
-        python executable with which to call the script
+        Here, the two inputs would be passed to the script under the names "first" and
+        "second". Note that the double asterisk (**) is NECESSARY to properly unpack the
+        dict returned by the method.
+
+    Parameters:
+        snakefile_dir (Path or str):
+            Path to the snakemake app directory or Snakefile directory. This, combined
+            with the script path provided later, should form a fully resolved path to
+            the script, e.g. snakefile_dir/script_path.py
+
+        python_path (Path or str):
+            python executable with which to call the script
     """
 
     def __init__(
@@ -108,10 +106,9 @@ class Pyscript:
         Wrap this function around your rule inputs. Be sure to include a double
         asterisk before the function to unpack the dict, e.g. `**pyscript.input(...)`
 
-        Returns
-        -------
-        Dict
-            Dict of name, value pairs. This should be unpacked using a double asterisk
+        Returns:
+            Dict: Dict of name, value pairs. This should be unpacked using a double
+                asterisk
         """
         self._input = ScriptDict(**kwargs)
         return kwargs
@@ -122,10 +119,9 @@ class Pyscript:
         Wrap this function around your rule outputs. Be sure to include a double
         asterisk before the function to unpack the dict, e.g. `**pyscript.output(...)`
 
-        Returns
-        -------
-        Dict
-            Dict of name, value pairs. This should be unpacked using a double asterisk
+        Returns:
+            Dict: Dict of name, value pairs. This should be unpacked using a double
+                asterisk
         """
         self._output = ScriptDict(**kwargs)
         return kwargs
@@ -136,10 +132,9 @@ class Pyscript:
         Wrap this function around your rule params. Be sure to include a double
         asterisk before the function to unpack the dict, e.g. `**pyscript.params(...)`
 
-        Returns
-        -------
-        Dict
-            Dict of name, value pairs. This should be unpacked using a double asterisk
+        Returns:
+            Dict: Dict of name, value pairs. This should be unpacked using a double
+                asterisk
         """
         self._params = ScriptDict(**kwargs)
         return kwargs
@@ -151,10 +146,9 @@ class Pyscript:
         asterisk before the function to unpack the dict, e.g.
         `**pyscript.resources(...)`
 
-        Returns
-        -------
-        Dict
-            Dict of name, value pairs. This should be unpacked using a double asterisk
+        Returns:
+            Dict: Dict of name, value pairs. This should be unpacked using a double
+            asterisk
         """
         self._resources = ScriptDict(**kwargs)
         return kwargs
@@ -166,10 +160,9 @@ class Pyscript:
         asterisk before the function to unpack the dict, e.g.
         `**pyscript.wildcards(...)`
 
-        Returns
-        -------
-        Dict
-            Dict of name, value pairs. This should be unpacked using a double asterisk
+        Returns:
+            Dict: Dict of name, value pairs. This should be unpacked using a double
+                asterisk
         """
         self._wildcards = ScriptDict(**kwargs)
         return kwargs
@@ -180,10 +173,9 @@ class Pyscript:
         Wrap this function around your rule logs. Be sure to include a double
         asterisk before the function to unpack the dict, e.g. `**pyscript.log(...)`
 
-        Returns
-        -------
-        Dict
-            Dict of name, value pairs. This should be unpacked using a double asterisk
+        Returns:
+            Dict: Dict of name, value pairs. This should be unpacked using a double
+                asterisk
         """
         self._log = ScriptDict(**kwargs)
         return kwargs
@@ -212,27 +204,22 @@ class Pyscript:
         Any data types not annotated via Pyscript methods or call parameters will be
         passed to the script as a List.
 
-        Parameters
-        ----------
-        script : str
-            Path of the script to run. This, when combined with the snakemake_dir
-            provided to Pyscript, should form a fully resolved path to the script.
-        input : List of str, optional
-        output : List of str, optional
-        params : List of str, optional
-        wildcards : List of str, optional
-        resources : List of str, optional
-        log : List of str, optional
+        Parameters:
+            script (str):
+                Path of the script to run. This, when combined with the snakemake_dir
+                provided to Pyscript, should form a fully resolved path to the script.
+            input (List of str)
+            output (List of str)
+            params (List of str)
+            wildcards (List of str)
+            resources (List of str)
+            log (List of str)
 
-        Returns
-        -------
-        str
-            Bash command to be passed to the snakemake shell directive
+        Returns:
+            str: Bash command to be passed to the snakemake shell directive
 
-        Raises
-        ------
-        FileExistsError
-            Raised if the specified script does not exist
+        Raises:
+            FileExistsError: Raised if the specified script does not exist
         """
         resolved_script = (self.snakefile_dir / script).resolve()
 

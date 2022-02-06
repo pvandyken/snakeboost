@@ -20,15 +20,12 @@ class XvfbRun:
         run commands requiring and x-server. This function wraps commands with
         `xvfb-run`, which starts a virtual x-server. This command is thread safe
 
-        Parameters
-        ----------
-        cmd : str
-            The command to run
+        Parameters:
+            cmd (str):
+                The command to run
 
-        Returns
-        -------
-        str
-            The modified shell script
+        Returns:
+            str: The modified shell script
         """
         return (
             f"echo '{quote_escape(cmd)}' | "

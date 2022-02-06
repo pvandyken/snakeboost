@@ -29,11 +29,10 @@ class Tar:
     Supports the creation of new tarfile outputs, the modification of existing tarfiles,
     and the opening of existing tar files as inputs.
 
-    Attributes
-    ----------
-    root : str
-        The directory in which to place the open tarfile directories. Intended to be
-        a temporary directory
+    Attributes:
+        root (Path or str):
+            The directory in which to place the open tarfile directories. Intended to be
+            a temporary directory
     """
 
     _root: Path = attr.ib(converter=Path)
@@ -59,25 +58,30 @@ class Tar:
     ):
         """Set inputs, outputs, and modifies for tarring, and other settings
 
+        # Setting inputs and outputs
+
         Use wildcard inputs and outputs using "{input.foo}" or similar, or any arbitrary
         path, e.g. "{params.atlas}".
 
-        Inputs: Extracts tar file inputs into a directory of your choice. The tar file
-        is renamed (with a `.swap` suffix) and a symlink of the same name as the tarfile
-        is made to the unpacked directory. Upon completion or failure of the job, the
-        symlink is automatically closed.
+        - **Inputs**: Extracts tar file inputs into a directory of your choice. The tar
+          file is renamed (with a `.swap` suffix) and a symlink of the same name as the
+          tarfile is made to the unpacked directory. Upon completion or failure of the
+          job, the symlink is automatically closed.
 
-        Modify: Opens the tarfile as with inputs. Upon successful completion of the job,
-        the directory is packaged into a new tarfile, and the old tarfile is deleted.
+        - **Modify**: Opens the tarfile as with inputs. Upon successful completion of
+          the job, the directory is packaged into a new tarfile, and the old tarfile is
+          deleted.
 
-        Outputs: Creates a new directory symlinked by the name of the tarfile. Upon
-        successful completion of the job, the directory is packaged into a tarfile.
-        Previous tarfiles produced by the rule will be overwritten, as is usual for
-        Snakemake, however an error will be thrown if any `output.swap` is found (e.g.
-        `file.tar.gz.out`)
+        - **Outputs**: Creates a new directory symlinked by the name of the tarfile.
+          Upon successful completion of the job, the directory is packaged into a
+          tarfile. Previous tarfiles produced by the rule will be overwritten, as is
+          usual for Snakemake, however an error will be thrown if any `output.swap` is
+          found (e.g. `file.tar.gz.out`)
 
         All files are g-zipped, so `.tar.gz` should be used as the extension for all
         inputs and outputs affected by the function
+
+        # Clearing mounts
 
         Tar typically does not delete any extracted tarfile contents. This way, if
         multiple rules use the same input tarball, the file only needs to be unpackked
@@ -97,19 +101,16 @@ class Tar:
         inconsistent behaviour. Instead, save any modifications to a new tarball using
         `output` or save your modifications to the existing tarball using `modify`.
 
-        Parameters
-        ----------
-        inputs : List[str], optional
-            List of inputs. Use "{input.foo}" for wildcard paths. By default None
-        outputs : List[str], optional
-            List of outputs. Use "{output.foo}" for wildcard paths. By default None
-        modify : List[str], optional
-            List of files to modify. By default None
+        Parameters:
+            inputs (List of str):
+                List of inputs. Use "{input.foo}" for wildcard paths
+            outputs (list of str):
+                List of outputs. Use "{output.foo}" for wildcard paths
+            modify (list of str):
+                List of files to modify
 
-        Returns
-        -------
-        Tar
-            A fresh Tar instance with the update inputs, outputs, and modifies
+        Returns:
+            Tar: A fresh Tar instance with the update inputs, outputs, and modifies
         """
         if self.clear_mounts is not None:
             clear_mounts = self.clear_mounts
@@ -118,15 +119,12 @@ class Tar:
     def __call__(self, cmd: str):
         """Modify shell script to manipulate .tar files as directories
 
-        Parameters
-        ----------
-        cmd : str
-            Command to run
+        Parameters:
+            cmd (str):
+                Command to run
 
-        Returns
-        -------
-        str
-            Modified shell script
+        Returns:
+            str: Modified shell script
         """
         input_scripts = _get_bash_wrapper(
             self.inputs,

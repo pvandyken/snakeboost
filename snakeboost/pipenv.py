@@ -34,27 +34,23 @@ class PipEnv:
     Supports thread-safe installation, so multiple jobs depending on the same venv may
     be run simultaneously.
 
-    Parameters
-    ----------
-    root : Path
-        The directory in which to place the virtualenv. Intended to be a temporary
-        directory
-    flags : str
-        Flags to include on every call of `pip install` (e.g. custom wheelhouse paths)
-    packages : List[str]
-        List of packages to install. Can be any valid pip package identifier (with or
-        without version specification)
-    requirements : List[str]
-        List of paths to requirements.txt files
+    Parameters:
+        root (Path or str): The directory in which to place the virtualenv. Intended to
+            be a temporary directory
+        flags (str):
+            Flags to include on every call of `pip install` (e.g. custom wheelhouse
+            paths)
+        packages (List[str]): List of packages to install. Can be any valid pip package
+            identifier (with or without version specification)
+        requirements (List[str]): List of paths to requirements.txt files
 
-    Attributes
-    ----------
-    venv : str
-        Path to the venv dir
-    bin : str
-        Path to the venv bin dir (e.g. venv/bin)
-    python_path : str
-        Path of the python executable (e.g. venv/bin/python)
+    Attributes:
+        venv (str):
+            Path to the venv dir
+        bin (str):
+            Path to the venv bin dir (e.g. venv/bin)
+        python_path (str):
+            Path of the python executable (e.g. venv/bin/python)
     """
 
     def __init__(
@@ -94,10 +90,8 @@ class PipEnv:
         Typically, this should NOT be used. The class methods provide the same
         functionality and are safer.
 
-        Returns
-        -------
-        str
-            Bash script to look for a venv and create one if necessary
+        Returns:
+            str: Bash script to look for a venv and create one if necessary
         """
         install_prefix = f"{self.python_path} -m pip install {self._flags}"
         install_cmd = " && ".join(
@@ -140,15 +134,12 @@ class PipEnv:
         When using multiple enhancers, this must ALWAYS be the last one before the
         command.
 
-        Parameters
-        ----------
-        cmd : str
-            Command to run
+        Parameters:
+            cmd (str):
+                Command to run
 
-        Returns
-        -------
-        str
-            Modified shell script
+        Returns:
+            str: Modified shell script
         """
         return f"{self.get_venv} && {self.python_path} {cmd}"
 
@@ -162,15 +153,12 @@ class PipEnv:
         When using multiple enhancers, this must ALWAYS be the last one before the
         command.
 
-        Parameters
-        ----------
-        cmd : str
-            Command to run
+        Parameters:
+            cmd (str):
+                Command to run
 
-        Returns
-        -------
-        str
-            Modified shell script
+        Returns:
+            str: Modified shell script
         """
         stripped = cmd.strip()
         return self.python(f"{self.venv}/bin/{stripped}")
@@ -178,15 +166,12 @@ class PipEnv:
     def make_venv(self, cmd: str):
         """Ensure of existence of venv and run any arbitrary command
 
-        Parameters
-        ----------
-        cmd : str
-            Command to run
+        Parameters:
+            cmd:
+                Command to run
 
-        Returns
-        -------
-        str
-            Modified shell script
+        Returns:
+            str: Modified shell script
         """
         return f"{self.get_venv} && {cmd}"
 
