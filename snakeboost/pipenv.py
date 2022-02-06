@@ -161,7 +161,7 @@ class PipEnv:
             str: Modified shell script
         """
         stripped = cmd.strip()
-        return f"{self.venv}/bin/{stripped}"
+        return self.make_venv(f"{self.venv}/bin/{stripped}")
 
     def make_venv(self, cmd: str):
         """Ensure of existence of venv and run any arbitrary command
