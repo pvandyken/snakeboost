@@ -74,7 +74,7 @@ class mkdir(ShSingleCmd):
 class mv(ShSingleCmd):
     cmd = "mv"
 
-    def __init__(self, _from: StringLike, _to: StringLike, /):
+    def __init__(self, _from: StringLike, _to: StringLike):
         super().__init__(f"{_from} {_to}")
 
 
