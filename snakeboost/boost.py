@@ -137,8 +137,7 @@ class Boost:
 
 
 if __name__ == "__main__":
-    import snakeboost.bash as sh
-    from snakeboost import Datalad, PipEnv, Pyscript, Tar, XvfbRun
+    from snakeboost import Datalad, PipEnv, Tar, XvfbRun
 
     tar = Tar(Path("/tmp"))
     xvfb_run = XvfbRun()
@@ -153,36 +152,4 @@ if __name__ == "__main__":
         "number=substr($(NF), match($(NF), /[0-9]{{5}}/), 5)",
         "split($(NF), parts, number)",
         'printf "%s "output"/%s%05d%s\\n", $0, parts[1], number+offset, parts[2]',
-    )
-
-    print(
-        boost(
-            datalad,
-            tar.using(inputs=["{input}"], outputs=["{output}"]),
-            wma_env.make_venv,
-            sh.ShTry(
-                tmpdir := sh.ShVar("{resources.tmpdir}/reformat_clusters"),
-                vtp_dir := sh.ShVar(str(tmpdir) + "/vtp-tracts"),
-                sh.mkdir(vtp_dir).p,
-                sh.mv("{input}/tracts_left_hemisphere/*", vtp_dir),
-                sh.find("{input}/tracts_right_hemisphere/ -type f")
-                | sh.awk(*rename_awk_expr).F("/").v(offset="800", output=vtp_dir)
-                | "xargs -L 1 mv",
-                sh.find("{input}/tracts_commissural/ -type f")
-                | sh.awk(*rename_awk_expr)
-                .F("/")
-                .v(offset="1600", output="$tmpdir/vtp-tracts")
-                | "xargs -L 1 mv",
-                Pyscript("snakeboost", python_path=wma_env.python_path)(
-                    input={"input": str(vtp_dir)},
-                    output={"output": str(tmpdir) + "/vtk-tracts"},
-                    script="boost.py",
-                ),
-                sh.find("$tmpdir/vtk-tracts -type f")
-                | sh.awk('print $0 " {output}/"$(NF-1)".tck"').F("[./]")
-                | "xargs -L 1 tckconvert",
-            )
-            .catch("rm {resources.tmpdir}/reformat_clusters -rf", "false")
-            .to_str(),
-        )
     )
