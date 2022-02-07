@@ -43,11 +43,11 @@ class Tar:
 
     @property
     def root(self):
-        return self._root / "__snakemake_tarfiles__"
+        return self._root.resolve() / "__snakemake_tarfiles__"
 
     @property
     def timestamps(self):
-        return self._root / "__snakemake_tarfile_timestamps__"
+        return self._root.resolve() / "__snakemake_tarfile_timestamps__"
 
     def using(
         self,

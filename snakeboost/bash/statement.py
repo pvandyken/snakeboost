@@ -158,6 +158,9 @@ class ShIf:
             return self.then(*cmd)
         return self.then(cmd)
 
+    def __or__(self, expr: "ShIf"):
+        return ShIf(f"{self.expr} || {expr.expr}")
+
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
 

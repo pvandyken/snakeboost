@@ -133,13 +133,23 @@ class Boost:
 
 
 if __name__ == "__main__":
-    from snakeboost import PipEnv, Tar, XvfbRun
+    from snakeboost import Datalad, PipEnv, Pyscript, Tar, XvfbRun
+
+    tar = Tar(Path("/tmp"))
+    xvfb_run = XvfbRun()
+    boost = Boost(Path("/tmp"), disable_script=True, debug=True)
+    datalad = Datalad(Path())
+    wma_env = PipEnv(
+        packages=["whitematteranalysis", "vtk==8.1.2", "/scratch/knavynde/snakeboost"],
+        root=Path("/tmp"),
+    )
 
     print(
-        Boost("/tmp", disable_script=True, debug=True)(
-            XvfbRun(),
-            Tar("/tmp").using(inputs=["{input}"]),
-            PipEnv("/tmp", packages=["flake8, pylint, black"]).script,
-            "flake8 {input}/script.py",
-        ).format(input="/path/to/my/archive.tar.gz", jobid=1)
+        boost(
+            datalad.msg("Convert clusters back to subject T1w space"),
+            xvfb_run,
+            tar.using(inputs=["{input.data}"]),
+            wma_env.script,
+            Pyscript("snakeboost")("datalad.py", input=["data", "transform"]),
+        )
     )

@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import hashlib
 
 from snakeboost.bash.cmd import StringLike, echo
-from snakeboost.bash.statement import subsh
+from snakeboost.bash.statement import ShIf, subsh
 from snakeboost.bash.utils import quote_escape
 
 
@@ -52,7 +52,7 @@ def rm_if_exists(path: StringLike, recursive: bool = False):
         flag = "-rf"
     else:
         flag = ""
-    return f"( [ ! -e {path} ] || rm {flag} {path} )"
+    return (ShIf.exists(path) | ShIf.is_symlink(path)) >> f"rm {flag} {path}"
 
 
 def split(text: str):
