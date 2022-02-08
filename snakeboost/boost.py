@@ -116,9 +116,10 @@ class Boost:
         script_root = self.script_root / "__sb_scripts__"
         script_root.mkdir(exist_ok=True, parents=True)
         script_path = script_root / get_hash(script)
-        with (script_path).open("w") as f:
-            f.write(script)
-        _chmod_rwx(script_path)
+        if not script_path.exists():
+            with (script_path).open("w") as f:
+                f.write(script)
+            _chmod_rwx(script_path)
 
         calling_cmd = f"{script_path} " + " ".join(
             [f"'{field}'" for field in unique_fields]
