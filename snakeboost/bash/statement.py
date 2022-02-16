@@ -119,8 +119,8 @@ class ShIfBody(ShStatement):
         if Globals.DEBUG:
             statement = f"\n{textwrap.indent(body, '    ')}"
         else:
-            statement = body
-        self.expr = f"{preamble} {statement}"
+            statement = " " + body
+        self.expr = f"{preamble}{statement}"
 
     def __str__(self):
         if Globals.DEBUG:
@@ -228,22 +228,31 @@ class ShIfNot(ShIf):
 
 class ShTry(ShStatement):
     def __init__(self, *args: ShEntity):
-        self.cmd = ShBlock(*args)
+        self.cmd = ShBlock("set -e", *args)
         self._catch = ""
         self._els = ""
 
     def els(self, *cmds: ShEntity):
-        self._els = ShBlock(*cmds)
+        self._els = cmds
         return self
 
     def catch(self, *cmds: ShEntity):
-        self._catch = ShBlock(*cmds)
+        self._catch = cmds
         return self
 
     def __str__(self):
-        catch = f"|| {self._catch}" if self._catch else ""
-        els = f"&& {self._els}" if self._els else ""
-        return ShBlock(f"{self.cmd} {els} {catch}").to_str()
+        ex_code = ShVar("$?")
+        catch = ShIf(ex_code).ne(0).then(*self._catch) if self._catch else ""
+        els = ShIf(ex_code).eq(0).then(*self._els) if self._els else ""
+        return ShBlock(
+            "[[ $- = *e* ]]; SAVED_OPT_E=$?",
+            "set +e",
+            self.cmd,
+            ex_code,
+            "(( $SAVED_OPT_E )) && set +e || set -e",
+            catch,
+            els,
+        ).to_str()
 
 
 def subsh(*args: ShEntity):
