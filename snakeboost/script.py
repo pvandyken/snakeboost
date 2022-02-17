@@ -346,8 +346,18 @@ def snakemake_parser():
     return parser
 
 
+ArgAlias = Union[List[str], Dict[str, str]]
+
+
 def snakemake_args(
-    argv: List[str] = None, parser: argparse.ArgumentParser = snakemake_parser()
+    argv: List[str] = None,
+    parser: argparse.ArgumentParser = snakemake_parser(),
+    input: ArgAlias = None,
+    output: ArgAlias = None,
+    params: ArgAlias = None,
+    wildcards: ArgAlias = None,
+    resources: ArgAlias = None,
+    log: ArgAlias = None,
 ):
     """Snakemake args passed from snakemake rule
 
@@ -366,5 +376,53 @@ def snakemake_args(
     -------
     SnakemakeArgs
     """
+    alias_cats = dict(
+        input=input or [],
+        output=output or [],
+        params=params or [],
+        wildcards=wildcards or [],
+        resources=resources or [],
+        log=log or [],
+    )
+    for aliases in alias_cats.values():
+        _add_arg_aliases(aliases, parser)
     args = parser.parse_args(argv)
-    return SnakemakeArgs(**args.__dict__)
+    parsed = args.__dict__
+    for alias_cat, aliases in alias_cats.items():
+        parsed_alias = _parse_arg_alias(args, aliases)
+        parsed[alias_cat].extend(parsed_alias)
+    parsed = {k: v for k, v in parsed.items() if k in [*alias_cats, "threads"]}
+    return SnakemakeArgs(**parsed)
+
+
+def _add_arg_aliases(aliases: ArgAlias, parser: argparse.ArgumentParser):
+    if isinstance(aliases, dict):
+        for alias in aliases.values():
+            parser.add_argument(alias, nargs="?", default=[])
+    if isinstance(aliases, list):
+        for alias in aliases:
+            parser.add_argument(alias, nargs="?", default=[])
+
+
+def _parse_arg_alias(namespace: argparse.Namespace, aliases: ArgAlias):
+    if isinstance(aliases, dict):
+        for name, alias in aliases.items():
+            arg = _get_arg_from_namespace(namespace, alias)
+            if arg:
+                yield f"{name}={arg}"
+    if isinstance(aliases, list):
+        for alias in aliases:
+            yield _get_arg_from_namespace(namespace, alias)
+
+
+def _get_arg_from_namespace(namespace: argparse.Namespace, arg_name: str):
+    attr = re.sub(r"\-", "_", re.sub(r"^(--(?=[^-])|-(?=[^-]))", "", arg_name))
+    return getattr(namespace, attr)
+
+
+if __name__ == "__main__":
+    print(
+        snakemake_args(
+            argv=["--pos-1", "me", "--input", "hello=world"], input={"dodge": "--pos-1"}
+        ).input
+    )
