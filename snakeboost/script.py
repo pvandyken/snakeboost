@@ -398,10 +398,10 @@ def snakemake_args(
 def _add_arg_aliases(aliases: ArgAlias, parser: argparse.ArgumentParser):
     if isinstance(aliases, dict):
         for alias in aliases.values():
-            parser.add_argument(alias, nargs="?", default=[])
+            parser.add_argument(alias, nargs="?", default="")
     if isinstance(aliases, list):
         for alias in aliases:
-            parser.add_argument(alias, nargs="?", default=[])
+            parser.add_argument(alias, nargs="?", default="")
 
 
 def _parse_arg_alias(namespace: argparse.Namespace, aliases: ArgAlias):
