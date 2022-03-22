@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 import functools as ft
 import itertools as it
-import operator as op
 import re
 import string
 from pathlib import Path
@@ -19,16 +18,23 @@ from snakeboost.utils import get_replacement_field, resolve, split
 __all__ = ["Datalad"]
 
 
-ParsedFormat = Iterable[Tuple[str, Optional[str], Optional[str], Optional[str]]]
+ParsedFormat = Tuple[str, Optional[str], Optional[str], Optional[str]]
 
 
-def _filter_input_output_fields(format_parser: ParsedFormat) -> ParsedFormat:
+def _filter_input_output_fields(
+    format_parser: Iterable[ParsedFormat],
+) -> Iterable[ParsedFormat]:
     for literal, field_name, *specifiers in format_parser:
         if field_name and re.match(r"^(input|output)(\..*)?$", field_name):
             yield literal, field_name, *specifiers
             continue
         field_str = get_replacement_field(field_name, *specifiers)
         yield literal + field_str, None, None, None
+
+
+def _get_field_category(field: Tuple[str, Optional[str], Optional[str]]) -> str:
+    assert (category := re.search(r"^(input|output)", field[0]))
+    return category[1]
 
 
 CLI_FLAGS = {"inputs": "-i", "outputs": "-o"}
@@ -95,10 +101,10 @@ class Datalad:
                         lambda x: x[0] is not None, zip(field_name, *field_components)
                     ),
                     # 2. Sort by field name
-                    key=op.itemgetter(0),
+                    key=_get_field_category,
                 ),
                 # 3. Group by field name
-                key=op.itemgetter(0),
+                key=_get_field_category,
             )
         }
 
@@ -149,4 +155,4 @@ class Datalad:
 
 
 if __name__ == "__main__":
-    print(Datalad(Path("/path/to/root"))("echo {input}"))
+    pass
