@@ -4,7 +4,7 @@ import argparse
 import re
 from collections import UserDict
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 
 def _mapping(arg: str, values: Iterable[str]):
@@ -264,9 +264,12 @@ def _parse_snakemake_arg(
 ) -> SnakemakeSequenceArg[T]:
     matches = [re.match(r"^([^\d\W]\w*)=(?!.*=)(.*)$", value) for value in values]
     if not any(matches):
-        return [converter(v) for v in values]
+        return [converter(v) for v in values if v]
     if all(matches):
-        return {str(m.group(1)): converter(m.group(2)) for m in matches}  # type: ignore
+        return {
+            str(m.group(1)): converter(m.group(2))  # type: ignore
+            for m in matches if m.group(2)  # type: ignore
+    }
     valuelist = "\n\t".join(values)
     raise ParseError(f"Mixture of dict=args and listargs:\n\t{valuelist}")
 
@@ -346,18 +349,19 @@ def snakemake_parser():
     return parser
 
 
-ArgAlias = Union[List[str], Dict[str, str]]
+ArgAlias = Union[str, Tuple[str, str]]
+ArgAliasGroup = Union[List[ArgAlias], Dict[str, ArgAlias]]
 
 
 def snakemake_args(
     argv: List[str] = None,
     parser: argparse.ArgumentParser = snakemake_parser(),
-    input: ArgAlias = None,
-    output: ArgAlias = None,
-    params: ArgAlias = None,
-    wildcards: ArgAlias = None,
-    resources: ArgAlias = None,
-    log: ArgAlias = None,
+    input: ArgAliasGroup = None,
+    output: ArgAliasGroup = None,
+    params: ArgAliasGroup = None,
+    wildcards: ArgAliasGroup = None,
+    resources: ArgAliasGroup = None,
+    log: ArgAliasGroup = None,
 ):
     """Snakemake args passed from snakemake rule
 
@@ -395,24 +399,36 @@ def snakemake_args(
     return SnakemakeArgs(**parsed)
 
 
-def _add_arg_aliases(aliases: ArgAlias, parser: argparse.ArgumentParser):
+def _add_arg_alias(alias: ArgAlias, parser: argparse.ArgumentParser):
+    if isinstance(alias, str):
+        parser.add_argument(alias, nargs="?", default="")
+    else:
+        parser.add_argument(alias[0], nargs="?", default=alias[1])
+
+
+def _add_arg_aliases(aliases: ArgAliasGroup, parser: argparse.ArgumentParser):
     if isinstance(aliases, dict):
         for alias in aliases.values():
-            parser.add_argument(alias, nargs="?", default="")
+            _add_arg_alias(alias, parser)
     if isinstance(aliases, list):
         for alias in aliases:
-            parser.add_argument(alias, nargs="?", default="")
+            _add_arg_alias(alias, parser)
 
 
-def _parse_arg_alias(namespace: argparse.Namespace, aliases: ArgAlias):
+def _parse_arg_alias(namespace: argparse.Namespace, aliases: ArgAliasGroup):
+    def get_alias(alias: ArgAlias):
+        if isinstance(alias, str):
+            return alias
+        return alias[0]
+
     if isinstance(aliases, dict):
         for name, alias in aliases.items():
-            arg = _get_arg_from_namespace(namespace, alias)
+            arg = _get_arg_from_namespace(namespace, get_alias(alias))
             if arg:
                 yield f"{name}={arg}"
     if isinstance(aliases, list):
         for alias in aliases:
-            yield _get_arg_from_namespace(namespace, alias)
+            yield _get_arg_from_namespace(namespace, get_alias(alias))
 
 
 def _get_arg_from_namespace(namespace: argparse.Namespace, arg_name: str):
