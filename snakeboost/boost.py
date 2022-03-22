@@ -65,7 +65,7 @@ def _colorize_cmd(cmd: str):
         for field_component in zip(*field_components)
     ]
     escaped_literals = [
-        literal.replace("{", "{{").replace("}", "}}") if literal else None
+        literal.replace("{", "{{").replace("}", "}}").replace("\n", "\n\033[0;33m#...\033[0;37m") if literal else None
         for literal in literals
     ]
     return "\033[0m" + "".join(

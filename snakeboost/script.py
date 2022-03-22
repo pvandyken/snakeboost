@@ -428,7 +428,9 @@ def _parse_arg_alias(namespace: argparse.Namespace, aliases: ArgAliasGroup):
                 yield f"{name}={arg}"
     if isinstance(aliases, list):
         for alias in aliases:
-            yield _get_arg_from_namespace(namespace, get_alias(alias))
+            arg = _get_arg_from_namespace(namespace, get_alias(alias))
+            if arg:
+                yield arg
 
 
 def _get_arg_from_namespace(namespace: argparse.Namespace, arg_name: str):
