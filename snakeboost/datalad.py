@@ -138,9 +138,13 @@ class Datalad:
         # fmt: off
         return ShBlock(
             (
-                inputs := ShVar(file_list["inputs"] if "inputs" in file_list else '""'),
+                inputs := ShVar(
+                    file_list["inputs"] if "inputs" in file_list else '""',
+                    export=True
+                ),
                 outputs := ShVar(
-                    file_list["outputs"] if "outputs" in file_list else '""'
+                    file_list["outputs"] if "outputs" in file_list else '""',
+                    export=True
                 ),
                 Flock(self.dataset_root, wait=900).do(
                     ShIf.not_empty(inputs) >> (

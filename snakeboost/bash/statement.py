@@ -26,7 +26,13 @@ class ShVar:
     name_generator = _var_names()
     active_names = set()
 
-    def __init__(self, value: Optional["ShEntity"] = None, *, name: str = None):
+    def __init__(
+        self,
+        value: Optional["ShEntity"] = None,
+        *,
+        name: str = None,
+        export: bool = False,
+    ):
         if name in self.active_names:
             raise ValueError(f"{name} has already been defined, perhaps automatically")
         if name:
@@ -37,6 +43,7 @@ class ShVar:
                 candidate = next(self.name_generator)
             self.name = candidate
         self.value = value
+        self.export = export
 
     def __str__(self):
         return f"${self.name}"
@@ -47,6 +54,10 @@ class ShVar:
 
     @property
     def set_statement(self):
+        if self.export:
+            export = "export "
+        else:
+            export = ""
         if self.value is None:
             return f"{self.name}=''"
         if any(
@@ -56,8 +67,8 @@ class ShVar:
                 isinstance(self.value, Path),
             ]
         ):
-            return f"{self.name}={self.value}"
-        return f"{self.name}={subsh(self.value)}"  # type: ignore
+            return f"{export}{self.name}={self.value}"
+        return f"{export}{self.name}={subsh(self.value)}"  # type: ignore
 
 
 StringLike = Union[str, Path, ShVar]  # type: ignore
