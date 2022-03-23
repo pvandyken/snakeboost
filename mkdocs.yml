@@ -1,0 +1,41 @@
+site_name: Snakeboost
+repo_url: https://github.com/pvandyken/snakeboost
+repo_name: pvandyken/snakeboost
+theme:
+  name: material
+  features:
+    - navigation.instant
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+
+
+markdown_extensions:
+  - toc:
+      permalink: true
+
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      watch:
+        - snakeboost
+      handlers:
+        python:
+          selection:
+            docstring_style: google
+          rendering:
+            show_root_toc_entry: false

@@ -40,6 +40,8 @@ mkinit = "^0.3.3"
 pylint = "^2.11.1"
 mypy = "^0.910"
 hypothesis = "^6.35.0"
+mkdocs-material = "^8.1.9"
+mkdocstrings = {extras = ["numpy-style"], version = "^0.17.0"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -49,6 +51,7 @@ build-backend = "poetry.core.masonry.api"
 setup = "pre-commit install"
 mkinit = "mkinit --recursive --nomods --black -i snakeboost"
 check_mkinit = "mkinit --recursive --nomods --black --diff snakeboost"
+docs = "mkdocs serve"
 
 [tool.isort]
 profile = "black"
