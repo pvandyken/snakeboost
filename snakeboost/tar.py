@@ -10,6 +10,7 @@ import more_itertools as itx
 from snakeboost.bash.cmd import cat, echo, find, mkdir
 from snakeboost.bash.statement import (
     BashWrapper,
+    Flock,
     ShBlock,
     ShEntity,
     ShIf,
@@ -154,10 +155,20 @@ class Tar:
         )
 
         before, success, failure = zip(input_scripts, output_scripts, modify_scripts)
+        # fmt: off
+        lockfile = (
+            [*filter(None, [self.inputs, self.outputs, self.modify])][0][0] + ".lock"
+        )
+        # fmt: on
 
         return ShBlock(
-            ShBlock(*itx.flatten(before)),
-            ShTry(cmd).catch(*itx.flatten(failure), "false").els(*itx.flatten(success)),
+            Flock(lockfile, wait=0).do(
+                ShBlock(*itx.flatten(before)),
+                ShTry(cmd)
+                .catch(*itx.flatten(failure), "false")
+                .els(*itx.flatten(success)),
+            ),
+            Flock(lockfile, wait=0, abort=True).do(f"rm {lockfile}") + " || :",
         ).to_str()
 
     def _get_mount_dir(self, dest):

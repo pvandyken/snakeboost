@@ -304,13 +304,16 @@ class ShFor:
 
 
 class Flock:
-    def __init__(self, file: StringLike, wait: int = 900):
+    def __init__(self, file: StringLike, wait: int = 900, abort: bool = False):
         self._wait = wait
         self._file = file
+        self._abort = abort
 
     def do(self, *cmds: ShEntity):
         cmd = quote_escape(_block_args(cmds))
-        suffix = f"| flock -w {self._wait} {self._file} /bin/bash"
+        wait = f"-w {self._wait} " if self._wait else ""
+        abort = "-n " if self._abort else ""
+        suffix = f"| flock {wait}{abort}{self._file} /bin/bash"
         if Globals.DEBUG:
             return f"echo '\n{textwrap.indent(cmd, '    ')}\n' {suffix}"
         return f"echo '{cmd}' {suffix}"
