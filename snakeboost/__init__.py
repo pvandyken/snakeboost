@@ -15,6 +15,8 @@ from snakeboost.xvfb import (
     XvfbRun,
 )
 from snakeboost.script import (
+    ArgAlias,
+    ArgAliasGroup,
     ParseError,
     Pyscript,
     PyscriptParam,
@@ -33,6 +35,8 @@ from snakeboost.tar import (
 )
 
 __all__ = [
+    "ArgAlias",
+    "ArgAliasGroup",
     "Boost",
     "ParseError",
     "PipEnv",
