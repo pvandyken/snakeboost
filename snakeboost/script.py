@@ -88,11 +88,8 @@ class Pyscript:
             python executable with which to call the script
     """
 
-    def __init__(
-        self, snakefile_dir: Union[str, Path], *, python_path: Union[str, Path] = None
-    ):
+    def __init__(self, snakefile_dir: Union[str, Path]):
         self.snakefile_dir = Path(snakefile_dir)
-        self.python_path = Path(python_path) if python_path else None
         self._input = None
         self._output = None
         self._params = None
@@ -184,6 +181,8 @@ class Pyscript:
     def __call__(
         self,
         script: str,
+        *,
+        python_path: Union[str, Path] = None,
         input: PyscriptParam = None,
         output: PyscriptParam = None,
         params: PyscriptParam = None,
@@ -229,10 +228,10 @@ class Pyscript:
                 "Be sure to define paths relative to the app root, not the workflow "
                 "root."
             )
-        if self.python_path is None:
+        if python_path is None:
             executable = "python"
         else:
-            executable = self.python_path
+            executable = python_path
         args = " ".join(
             [
                 _get_arg(arg, value)
@@ -268,8 +267,9 @@ def _parse_snakemake_arg(
     if all(matches):
         return {
             str(m.group(1)): converter(m.group(2))  # type: ignore
-            for m in matches if m.group(2)  # type: ignore
-    }
+            for m in matches
+            if m.group(2)  # type: ignore
+        }
     valuelist = "\n\t".join(values)
     raise ParseError(f"Mixture of dict=args and listargs:\n\t{valuelist}")
 
