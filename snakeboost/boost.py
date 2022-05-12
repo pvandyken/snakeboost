@@ -135,22 +135,3 @@ class Boost:
             f"{_colorize_cmd(core_cmd)}"
             f"\033[0m{cmd_wrapped}"
         )
-
-
-if __name__ == "__main__":
-    from snakeboost import Datalad, PipEnv, Tar, XvfbRun
-
-    tar = Tar(Path("/tmp"))
-    xvfb_run = XvfbRun()
-    boost = Boost(Path("/tmp"), debug=True)
-    datalad = Datalad(Path())
-    wma_env = PipEnv(
-        packages=["whitematteranalysis", "vtk==8.1.2", "/scratch/knavynde/snakeboost"],
-        root=Path("/tmp"),
-    )
-
-    rename_awk_expr = (
-        "number=substr($(NF), match($(NF), /[0-9]{{5}}/), 5)",
-        "split($(NF), parts, number)",
-        'printf "%s "output"/%s%05d%s\\n", $0, parts[1], number+offset, parts[2]',
-    )
