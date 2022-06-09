@@ -46,7 +46,7 @@ class ShVar:
         self.export = export
 
     def __str__(self):
-        return f"${self.name}"
+        return f"${{{self.name}}}"
 
     def set(self, value: Union["StringLike", ShCmd]):
         self.value = value
