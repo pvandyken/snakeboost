@@ -48,6 +48,9 @@ class ShVar:
     def __str__(self):
         return f"${{{self.name}}}"
 
+    def escape(self):
+        return f"${{{{{self.name}}}}}"
+
     def set(self, value: Union["StringLike", ShCmd]):
         self.value = value
         return self
