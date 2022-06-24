@@ -59,7 +59,7 @@ class Tar:
     ):
         """Set inputs, outputs, and modifies for tarring, and other settings
 
-        # Setting inputs and outputs
+        **Setting inputs and outputs**
 
         Use wildcard inputs and outputs using "{input.foo}" or similar, or any arbitrary
         path, e.g. "{params.atlas}".
@@ -82,7 +82,7 @@ class Tar:
         All files are g-zipped, so `.tar.gz` should be used as the extension for all
         inputs and outputs affected by the function
 
-        # Clearing mounts
+        **Clearing mounts**
 
         Tar typically does not delete any extracted tarfile contents. This way, if
         multiple rules use the same input tarball, the file only needs to be unpackked
@@ -109,6 +109,9 @@ class Tar:
                 List of outputs. Use "{output.foo}" for wildcard paths
             modify (list of str):
                 List of files to modify
+            clear_mounts: (optional bool):
+                Force the deletion or preservation of tar directories following rule
+                completion
 
         Returns:
             Tar: A fresh Tar instance with the update inputs, outputs, and modifies

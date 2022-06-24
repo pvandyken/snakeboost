@@ -87,8 +87,8 @@ class PipEnv:
         This can be embedded at the beginning of a shell script to ensure the existance
         of the venv.
 
-        Typically, this should NOT be used. The class methods provide the same
-        functionality and are safer.
+        Typically, this should NOT be used. Prefer the use of :meth:`.make_venv`, or
+        any of the other methods of :class:`PipEnv`
 
         Returns:
             str: Bash script to look for a venv and create one if necessary

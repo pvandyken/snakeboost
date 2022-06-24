@@ -36,12 +36,12 @@ class Pyscript:
     """Functions to run python scripts
 
     Runs python scripts similarly to the script directive in Snakemake, but can be used
-    with Snakeboost `PipEnv`s. Like the script directive, inputs, outputs, params, and
-    any other Snakemake data can be passed to the script.
+    with Snakeboost :func:`PipEnvs <snakeboost.PipEnv>`. Like the script directive,
+    inputs, outputs, params, and any other Snakemake data can be passed to the script.
 
     Pyscript can be combined with any other snakeboost function. It should take the
     place of the bash script. It can also be combined with Pipenv by wrapping it with
-    the Pipenv.script() function.
+    the :func:`PipEnv.script` function.
 
     Currently, only items serializable as strings can be provided. This includes text,
     numbers, Paths, etc. Complex objects may be supported in the future.
@@ -51,32 +51,14 @@ class Pyscript:
     Example:
         To preserve named data, such as:
 
-        ```
-        input:
-            first="/path/to/first",
-            second="/path/to/second"
-        ```
+        .. code-block:: python
 
-        annotations must be provided. There are two methods for this. The first is to
-        provide the names of data when calling the script. See the __call__() method for
-        more details. The second is to annotate each type of data when defining it in
-        the rule using the corresponding Pyscript method. For example:
-
-        ```
-        pyscript = Pyscript(snakemake_dir)
-        rule rule_name:
             input:
-                **pyscript.input(
-                    first="/path/to/first",
-                    second="/path/to/second"
-                )
-            shell:
-                pyscript("scripts/script_to_run.py")
-        ```
+                first="/path/to/first",
+                second="/path/to/second"
 
-        Here, the two inputs would be passed to the script under the names "first" and
-        "second". Note that the double asterisk (**) is NECESSARY to properly unpack the
-        dict returned by the method.
+        the names of the data must be provided when calling the script. See the
+        :meth:`__call__()` method for more details.
 
     Parameters:
         snakefile_dir (Path or str):
@@ -282,17 +264,16 @@ class SnakemakeArgs:
     the Snakemake rule calling the script.
 
     This class should not be initialized directly, but should be created through the
-    snakemake_args function
+    :func:`snakemake_args` function
 
-    Attributes
-    ----------
-    input: List or Dict of paths
-    output: List or Dict of paths
-    params: List or Dict of str
-    wildcards : List or Dict of str
-    threads : int
-    resources : List or Dict of str
-    log : List or Dict of paths
+    Attributes:
+        input (List or Dict of paths)
+        output (List or Dict of paths)
+        params (List or Dict of str)
+        wildcards (List or Dict of str)
+        threads (int)
+        resources (List or Dict of str)
+        log (List or Dict of paths)
     """
 
     def __init__(
@@ -368,17 +349,15 @@ def snakemake_args(
     Parses the command line call made by Pyscript and returns an instance of
     SnakemakeArgs for consumption in a python script.
 
-    Parameters
-    ----------
-    argv : List[str], optional
-        List of arguments to parse. Uses sys.argv[1:] by default
-    parser : argparse.ArgumentParser, optional
-        Argument parser to use. By default, uses the preconstructed snakemake_args
-        parser. This should be suitable for most applications.
+    Parameters:
+        argv (optional list[str])
+            List of arguments to parse. Uses ``sys.argv[1:]`` by default
+        parser ( argparse.ArgumentParser , optional)
+            Argument parser to use. By default, uses the preconstructed snakemake_args
+            parser. This should be suitable for most applications.
 
-    Returns
-    -------
-    SnakemakeArgs
+    Returns:
+        :class:`SnakemakeArgs`
     """
     alias_cats = dict(
         input=input or [],
