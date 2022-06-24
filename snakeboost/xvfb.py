@@ -10,7 +10,7 @@ from snakeboost.utils import quote_escape
 class XvfbRun:
     """Functions to enable virtual x11 servers on compute clusters
 
-    xvfb-run is only used if $DISPLAY is not set
+    xvfb-run is only used if ``$DISPLAY`` is not set
     """
 
     def __call__(self, cmd: str):
