@@ -2,6 +2,8 @@
 from __future__ import absolute_import
 
 import hashlib
+from pathlib import Path
+from typing import Optional, Union
 
 from snakeboost.bash.cmd import StringLike, echo
 from snakeboost.bash.statement import ShIf, subsh
@@ -9,9 +11,9 @@ from snakeboost.bash.utils import quote_escape
 
 
 def get_replacement_field(
-    field_name: str = None,
-    format_spec: str = None,
-    conversion: str = None,
+    field_name: Optional[str] = None,
+    format_spec: Optional[str] = None,
+    conversion: Optional[str] = None,
 ):
     if not field_name:
         return ""
@@ -26,6 +28,12 @@ def get_replacement_field(
         )
     )
     return f"{{{contents}}}"
+
+
+def lockfile(path: Union[Path, str], root: Path):
+    loc = root / ".lock"
+    loc.mkdir(exist_ok=True, parents=True)
+    return loc / get_hash(str(path))
 
 
 def silent_mv(src: str, dest: str):

@@ -109,7 +109,7 @@ class PipEnv:
         # fmt: off
         return ShBlock(
             mkdir(self._dir).p,
-            Flock(self._dir, wait=900).do(
+            Flock(self._dir/".lock", wait=900).do(
                 ShIf.isnt().executable(self.python_path).then(
                     ShTry(
                         f"virtualenv --no-download {self.venv}",
@@ -173,7 +173,7 @@ class PipEnv:
         Returns:
             str: Modified shell script
         """
-        return f"{self.get_venv} && {cmd}"
+        return ShBlock(self.get_venv, cmd).to_str()
 
 
 if __name__ == "__main__":

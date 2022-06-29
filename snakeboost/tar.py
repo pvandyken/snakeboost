@@ -2,25 +2,42 @@
 from __future__ import absolute_import
 
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Union
 
 import attr
-import more_itertools as itx
 
-from snakeboost.bash import (
-    BashWrapper,
-    Flock,
-    ShBlock,
-    ShEntity,
-    ShIf,
-    ShTry,
-    ShVar,
-    StringLike,
-)
-from snakeboost.bash.cmd import cat, echo, find, mkdir
-from snakeboost.utils import cp_timestamp, hash_path, rm_if_exists, silent_mv
+from snakeboost.bash import Flock, ShBlock, ShIf, ShVar
+from snakeboost.bash.cmd import echo, ls, mkdir
+from snakeboost.bash.statement import subsh
+from snakeboost.general import BashWrapper, ScriptComp
+from snakeboost.utils import hash_path, lockfile, rm_if_exists
 
 __all__ = ["Tar"]
+
+
+def _strip_braces(items: Optional[List[str]]):
+    if items is not None:
+        return [item.strip(" {}\t\n") for item in items]
+    return items
+
+
+def _get_tar_wrapper(
+    files: Optional[Iterable[str]],
+    factory: Callable[[str, ShVar], ScriptComp],
+    mount: Callable[[str], Union[Path, str]],
+):
+    mounts = {path: ShVar(mount(f"{{{path}}}")) for path in files or []}
+
+    return BashWrapper(
+        comps=tuple(
+            attr.evolve(
+                factory(f"{{{file}}}", mount),
+                assignments=mount,
+            )
+            for file, mount in mounts.items()
+        ),
+        subs=mounts,
+    )
 
 
 @attr.frozen
@@ -37,10 +54,11 @@ class Tar:
     """
 
     _root: Path = attr.ib(converter=Path)
-    inputs: Optional[List[str]] = None
-    outputs: Optional[List[str]] = None
-    modify: Optional[List[str]] = None
-    clear_mounts: Optional[bool] = None
+    inputs: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
+    mut_inputs: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
+    outputs: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
+    modify: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
+    cache_outputs: Optional[bool] = None
 
     @property
     def root(self):
@@ -50,12 +68,14 @@ class Tar:
     def timestamps(self):
         return self._root.resolve() / "__snakemake_tarfile_timestamps__"
 
+    # pylint: disable=too-many-arguments
     def using(
         self,
         inputs: Optional[List[str]] = None,
+        mut_inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         modify: Optional[List[str]] = None,
-        clear_mounts: bool = None,
+        cache_outputs: Optional[bool] = None,
     ):
         """Set inputs, outputs, and modifies for tarring, and other settings
 
@@ -116,9 +136,11 @@ class Tar:
         Returns:
             Tar: A fresh Tar instance with the update inputs, outputs, and modifies
         """
-        if self.clear_mounts is not None:
-            clear_mounts = self.clear_mounts
-        return self.__class__(self._root, inputs, outputs, modify, clear_mounts)
+        if self.cache_outputs is not None:
+            cache_outputs = self.cache_outputs
+        return self.__class__(
+            self._root, inputs, mut_inputs, outputs, modify, cache_outputs
+        )
 
     def __call__(self, cmd: str):
         """Modify shell script to manipulate .tar files as directories
@@ -130,179 +152,121 @@ class Tar:
         Returns:
             str: Modified shell script
         """
-        input_scripts = _get_bash_wrapper(
-            self.inputs,
-            lambda src: (
-                self._open_tar(src),
-                self._close_tar(src),
-                self._close_tar(src),
-            ),
-        )
-
-        output_scripts = _get_bash_wrapper(
-            self.outputs,
-            lambda dest: (
-                _open_output_tar(dest, self._get_mount_dir(dest)),
-                _save_tar(dest, self._get_mount_dir(dest)),
-                "",
-            ),
-        )
-
-        modify_scripts = _get_bash_wrapper(
-            self.modify,
-            lambda tar: (
-                self._open_tar(tar),
-                _save_tar(tar, self._get_mount_dir(tar)),
-                self._close_tar(tar),
-            ),
-        )
-
-        before, success, failure = zip(input_scripts, output_scripts, modify_scripts)
-        # fmt: off
-        lockfile = (
-            [*filter(None, [self.inputs, self.outputs, self.modify])][0][0] + ".lock"
-        )
-        # fmt: on
-
-        return ShBlock(
-            Flock(lockfile, wait=0).do(
-                ShBlock(*itx.flatten(before)),
-                ShTry(cmd)
-                .catch(*itx.flatten(failure), "false")
-                .els(*itx.flatten(success)),
-            ),
-            Flock(lockfile, wait=0, abort=True).do(f"rm {lockfile}") + " || :",
-        ).to_str()
-
-    def _get_mount_dir(self, dest):
-        return Path(self.root, hash_path(dest))
-
-    def _get_timestamp_file(self, dest):
-        return Path(self.timestamps, hash_path(dest))
-
-    def _open_tar(self, tarfile: str):
-        stowed = _stowed(tarfile)
-        fhash = ShVar(hash_path(tarfile))
-        mount = Path(self.root, str(fhash))
-        timestamp = Path(self.timestamps, str(fhash))
-
-        clear_mounts = (
-            (
-                mkdir(self.timestamps).p,
-                _timestamp_hash(mount).to_str() + f" >| {timestamp}",
-            )
-            if self.clear_mounts is None
-            else ""
-        )
-
-        return (
-            fhash,
-            ShIf.is_dir(mount)
-            >> (
-                ShIf.exists(stowed)
-                >> (rm_if_exists(tarfile))
-                >> (silent_mv(tarfile, stowed))
-            )
-            >> (
-                mkdir(mount).p,
-                ShIf.exists(stowed)
-                >> (
-                    echo(f"Found stowed tarfile: '{stowed}'. Extracting..."),
-                    f"tar -xzf {stowed} -C {mount}",
-                    rm_if_exists(tarfile),
-                )
-                >> (
-                    echo(f"Extracting and stowing tarfile: '{tarfile}'"),
-                    f"tar -xzf {tarfile} -C {mount}",
-                    silent_mv(tarfile, stowed),
+        return BashWrapper.merge(
+            [
+                _get_tar_wrapper(
+                    files=self.inputs,
+                    factory=lambda src, mount: ScriptComp(
+                        before=Flock(lockfile(src, self.root), wait=0, error=False).do(
+                            _mount_tar(src, mount)
+                        ),
+                        inner_mod=lambda s: Flock(lockfile(src, self.root), shared=True)
+                        .do(f"chmod -R a-w {mount}", s)
+                        .to_str(),
+                        after=Flock(lockfile(src, self.root), wait=0, error=False).do(
+                            f"chmod -R a+w {mount}"
+                        ),
+                    ),
+                    mount=self._public_mount,
                 ),
-            ),
-            f"ln -s {mount} {tarfile}",
-            cp_timestamp(stowed, tarfile),
-            *clear_mounts,
+                _get_tar_wrapper(
+                    files=self.mut_inputs,
+                    factory=lambda src, mount: ScriptComp(
+                        before=_mount_tar(src, mount),
+                        after=_rm_mount(mount),
+                    ),
+                    mount=self._private_mount,
+                ),
+                _get_tar_wrapper(
+                    files=self.outputs,
+                    factory=lambda dest, mount: ScriptComp(
+                        outer_mod=lambda s: self._modification_lock(dest, s),
+                        before=_tar_output(mount),
+                        success=_save_tar(dest, mount),
+                        failure=_rm_mount(mount),
+                    ),
+                    mount=self._public_mount,
+                ),
+                _get_tar_wrapper(
+                    files=self.modify,
+                    factory=lambda tar, mount: ScriptComp(
+                        before=_mount_tar(tar, mount),
+                        outer_mod=lambda s: self._modification_lock(tar, s),
+                        success=_save_tar(tar, mount),
+                        failure=_rm_mount(mount),
+                    ),
+                    mount=self._public_mount,
+                ),
+            ]
+        ).format_script(cmd)
+
+    def _public_mount(self, file: str):
+        return self.root / hash_path(file)
+
+    def _private_mount(self, _: str):
+        return subsh(
+            mkdir(self.root).p,
+            f"mktemp -d --tmpdir={self.root}",
         )
 
-    def _close_tar(self, tarfile: str):
-        fhash = ShVar(hash_path(tarfile))
-        mount = Path(self.root, str(fhash))
-        timestamp = Path(self.timestamps, str(fhash))
-        if self.clear_mounts:
-            clear_mounts = f"rm -rf {mount}"
-        elif self.clear_mounts is None:
-            clear_mounts = ShIf(_timestamp_hash(mount)).ne(cat(timestamp)) >> (
-                f"rm -rf {mount}"
-            )
-        else:
-            clear_mounts = ""
+    def _modification_lock(self, tarfile: str, script: str):
         return (
-            fhash,
-            f"rm {tarfile}",
-            silent_mv(_stowed(tarfile), tarfile),
-            clear_mounts,
+            Flock(lockfile(tarfile, self.root), wait=0)
+            .do(script)
+            .els(
+                echo(
+                    f"Unable to obtain lock on {tarfile}. Another process must be "
+                    "reading or writing from it."
+                ),
+                "false",
+            )
+            .to_str()
         )
 
 
-def _get_bash_wrapper(
-    files: Optional[Iterable[str]],
-    factory: Callable[[str], Tuple[ShEntity, ShEntity, ShEntity]],
-):
+def _tar_output(mount: ShVar):
     return (
-        BashWrapper(*zip(*(factory(file) for file in files)))
-        if files
-        else BashWrapper(tuple(), tuple(), tuple())
+        (ShIf.is_dir(mount) & ShIf.n(ls(mount).A)) >> (f"rm -rf {mount}/*"),
+        mkdir(mount).p,
     )
 
 
-def _timestamp_hash(directory: Path):
-    return find(directory, r"-exec date -r {{}} '+%m%d%Y%H%M%S' \;") | "md5sum"
-
-
-def _open_output_tar(tarfile: str, mount_dir: StringLike):
+def _save_tar(tarfile: str, mount: ShVar):
     return (
-        ShIf.e(_stowed(tarfile))
-        >> (
-            echo(
-                f"Found stashed tar file: '{_stowed(tarfile)}' while "
-                f"atempting to generate the output: '{tarfile}'. Please "
-                "rename this file, remove it, or manually change its "
-                "extension back to .tar.gz. If this file should not "
-                "have been processed, you may with to run ``snakemake "
-                "--touch`` to enforce correct timestamps for files."
-            ),
-            "false",
-        ),
-        rm_if_exists(tarfile),
-        rm_if_exists(mount_dir, True),
-        mkdir(mount_dir).p,
-        f"ln -s {mount_dir} {tarfile}",
-    )
-
-
-def _save_tar(tarfile: str, mount: Path):
-    return (
-        f"rm {tarfile}",
         echo(f"Packing tar file: {tarfile}"),
-        f"tar -czf {tarfile} -C {mount} .",
-        rm_if_exists(_stowed(tarfile)),
+        f"tar -czf {mount}.tar.gz -C {mount} .",
+        f"mv {mount}.tar.gz {tarfile}.tmp",
+        rm_if_exists(tarfile),
+        f"mv {tarfile}.tmp {tarfile}",
     )
 
 
-def _stowed(tarfile: str):
-    return tarfile + ".swp"
+def _rm_mount(mount: ShVar):
+    return f"rm -rf {mount}"
+
+
+def _mount_tar(tarfile: str, mount: ShVar):
+    cmd = (ShIf.isnt().is_dir(mount) | ShIf.empty(ls(mount).A)).then(
+        mkdir(mount).p,
+        echo(f"Extracting and stowing tarfile: '{tarfile}'"),
+        f"tar -xzf {tarfile} -C {mount}",
+    )
+    return cmd
 
 
 if __name__ == "__main__":
     print(
         Tar(Path("/tmp")).using(
-            inputs=["{input.data}"], outputs=["{output}"], clear_mounts=False
+            inputs=["{input.data}", "input.atlas"],
+            outputs=["{output}"],
         )(
-            (
+            ShBlock(
                 "wm_cluster_remove_outliers.py "
                 "-j {threads} "
-                "{input.data} {input.atlas} {params.work_folder} && "
+                "{input.data} {input.atlas} {params.work_folder}",
                 "mv "
                 "{params.work_folder}/{params.results_subfolder}_outlier_removed/* "
-                "{output}/"
-            )
+                "{output}/",
+            ).to_str()
         )
     )

@@ -78,6 +78,15 @@ class mv(ShSingleCmd):
         super().__init__(f"{_from} {_to}")
 
 
+class ls(ShSingleCmd):
+    cmd = "ls"
+
+    @property
+    def A(self):
+        self.flags.append("A")
+        return self
+
+
 class cat(ShSingleCmd):
     cmd = "cat"
 

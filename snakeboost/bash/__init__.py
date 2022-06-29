@@ -12,7 +12,6 @@ from snakeboost.bash.cmd import (
     wc,
 )
 from snakeboost.bash.statement import (
-    BashWrapper,
     Flock,
     ShBlock,
     ShEntity,
@@ -38,7 +37,6 @@ from snakeboost.bash.abstract import (
 
 __all__ = [
     "AwkBlock",
-    "BashWrapper",
     "Flock",
     "ShBlock",
     "ShCmd",

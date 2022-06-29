@@ -5,11 +5,10 @@ import itertools as it
 import textwrap
 from pathlib import Path
 from string import ascii_lowercase
-from typing import Iterable, NamedTuple, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 from snakeboost.bash.abstract import ShCmd, ShStatement
 from snakeboost.bash.globals import Globals
-from snakeboost.bash.utils import quote_escape
 
 
 def _var_names():
@@ -28,7 +27,7 @@ class ShVar:
 
     def __init__(
         self,
-        value: Optional["ShEntity"] = None,
+        value: Union["ShEntity", Path, None] = None,
         *,
         name: str = None,
         export: bool = False,
@@ -77,31 +76,23 @@ StringLike = Union[str, Path, ShVar]  # type: ignore
 ShEntity = Union[str, ShStatement, ShVar, "ShBlock", Tuple["ShEntity", ...]]
 
 
-BashWrapper = NamedTuple(
-    "BashWrapper",
-    [
-        ("before", Tuple[ShEntity]),
-        ("success", Tuple[ShEntity]),
-        ("failure", Tuple[ShEntity]),
-    ],
-)
-
-
 def canonicalize(entities: Iterable[ShEntity]):
-    return [
-        ShBlock(*entity)
-        if isinstance(entity, tuple)
-        else entity.set_statement
-        if isinstance(entity, ShVar)
-        else entity
-        for entity in entities
-        if entity
-    ]
+    for entity in entities:
+        if not entity:
+            continue
+        if isinstance(entity, tuple):
+            if any(entity):
+                yield ShBlock(*entity)
+            continue
+        if isinstance(entity, ShVar):
+            yield entity.set_statement
+            continue
+        yield entity
 
 
 class ShBlock(ShStatement):
     def __init__(self, *args: ShEntity, wrap: bool = True):
-        self.statements = canonicalize(args)
+        self.statements = list(canonicalize(args))
         self.wrap = wrap
 
     def __str__(self):
@@ -121,7 +112,7 @@ class ShBlock(ShStatement):
 def _block_args(cmd: Tuple[ShEntity]):
     if len(cmd) > 1:
         return str(ShBlock(*cmd, wrap=False))
-    return str(canonicalize(cmd)[0])
+    return str((list(canonicalize(cmd)) or [""])[0])
 
 
 class ShIfBody(ShStatement):
@@ -153,16 +144,19 @@ class ShIfBody(ShStatement):
 
 class ShIf:
     def __init__(self, expr: Union[StringLike, ShCmd] = ""):
-        if isinstance(expr, ShCmd):
-            self.expr = f'"{subsh(expr)}"'
-        else:
-            self.expr = expr
+        self.expr = self._eval_expr(expr)
 
     def __str__(self):
         return f"[[ {self.expr} ]]"
 
     def then(self, *cmd: ShEntity):
         return ShIfBody(f"if [[ {self.expr} ]]; then", cmd)
+
+    @staticmethod
+    def _eval_expr(expr: Union[StringLike, ShCmd, int]):
+        if isinstance(expr, ShCmd):
+            return f'"{subsh(expr)}"'
+        return str(expr)
 
     def __rshift__(self, cmd: ShEntity):
         if isinstance(cmd, tuple):
@@ -172,13 +166,14 @@ class ShIf:
     def __or__(self, expr: "ShIf"):
         return ShIf(f"{self.expr} || {expr.expr}")
 
+    def __and__(self, expr: "ShIf"):
+        return ShIf(f"{self.expr} && {expr.expr}")
+
     def gt(self, expr: Union[StringLike, int]):
         return self.__class__(f"{self.expr} -gt {expr}")
 
     def eq(self, expr: Union[StringLike, int, ShCmd]):
-        if isinstance(expr, ShCmd):
-            expr = f'"{subsh(expr)}"'
-        return self.__class__(f"{self.expr} == {expr}")
+        return self.__class__(f"{self.expr} == {self._eval_expr(expr)}")
 
     def ne(self, expr: Union[StringLike, int, ShCmd]):
         if isinstance(expr, ShCmd):
@@ -214,8 +209,16 @@ class ShIf:
         return cls.h(expr)
 
     @classmethod
-    def n(cls, expr: StringLike):
-        return cls(f"-n {expr}")
+    def n(cls, expr: Union[StringLike, ShCmd]):
+        return cls(f"-n {cls._eval_expr(expr)}")
+
+    @classmethod
+    def z(cls, expr: Union[StringLike, ShCmd]):
+        return cls(f"-z {cls._eval_expr(expr)}")
+
+    @classmethod
+    def empty(cls, expr: Union[StringLike, ShCmd]):
+        return cls.z(expr)
 
     @classmethod
     def x(cls, expr: StringLike):
@@ -242,6 +245,7 @@ class ShTry(ShStatement):
         self.cmd = ShBlock("set -e", *args)
         self._catch = ""
         self._els = ""
+        self._finish = ""
 
     def els(self, *cmds: ShEntity):
         self._els = cmds
@@ -251,18 +255,25 @@ class ShTry(ShStatement):
         self._catch = cmds
         return self
 
+    def finish(self, *cmds: ShEntity):
+        self._finish = cmds
+        return self
+
     def __str__(self):
-        ex_code = ShVar("$?")
-        catch = ShIf(ex_code).ne(0).then(*self._catch) if self._catch else ""
-        els = ShIf(ex_code).eq(0).then(*self._els) if self._els else ""
+        ex_code = ShVar("$?") if any(self._catch) or any(self._els) else ""
+        catch = ShIf(ex_code).ne(0).then(*self._catch) if any(self._catch) else ""
+        els = ShIf(ex_code).eq(0).then(*self._els) if any(self._els) else ""
+        finish = self._finish if any(self._finish) else ""
         return ShBlock(
             "[[ $- = *e* ]]; SAVED_OPT_E=$?",
             "set +e",
             self.cmd,
             ex_code,
             "(( $SAVED_OPT_E )) && set +e || set -e",
+            finish,
             catch,
             els,
+            # wrap=False,
         ).to_str()
 
 
@@ -303,17 +314,47 @@ class ShFor:
         return self.do(cmd)
 
 
-class Flock:
-    def __init__(self, file: StringLike, wait: int = 900, abort: bool = False):
+class Flock(ShStatement):
+    def __init__(
+        self,
+        file: StringLike,
+        wait: int = 900,
+        shared: bool = False,
+        error: bool = True,
+    ):
         self._wait = wait
         self._file = file
-        self._abort = abort
+        self._shared = shared
+        self._do = ""
+        self._els: Optional[str] = None if error else ""
+
+    def __str__(self):
+        wait = f"-w {self._wait} "
+        shared = "-s " if self._shared else ""
+        fd = ShVar()
+        main = ShBlock(
+            ShBlock(
+                f"flock {wait}{shared}{fd}",
+                self._do,
+            ).to_str()
+            + f" {{{{{fd.name}}}}}>>{self._file}",
+            wrap=False,
+        )
+        if self._els is not None:
+            wrapped = ShTry(main).catch(self._els)
+        else:
+            wrapped = main
+        return ShBlock(
+            ShIf.is_dir(self._file)
+            >> (f"echo \"flocked file '{self._file}' is a directory\"", "false"),
+            wrapped.to_str(),
+            wrap=False,
+        ).to_str()
 
     def do(self, *cmds: ShEntity):
-        cmd = quote_escape(_block_args(cmds))
-        wait = f"-w {self._wait} " if self._wait else ""
-        abort = "-n " if self._abort else ""
-        suffix = f"| flock {wait}{abort}{self._file} /bin/bash"
-        if Globals.DEBUG:
-            return f"echo '\n{textwrap.indent(cmd, '    ')}\n' {suffix}"
-        return f"echo '{cmd}' {suffix}"
+        self._do = _block_args(cmds)
+        return self
+
+    def els(self, *cmds: ShEntity):
+        self._els = _block_args(cmds)
+        return self
