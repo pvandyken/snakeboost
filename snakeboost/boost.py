@@ -86,12 +86,14 @@ class _ANSI:
         ]
         merged = "".join(
             [
-                f"{literal or ''}" + (f"{field}" if field else "")
+                f"{literal or ''}" + (f"'{field}'" if field else "")
                 for literal, field in zip(escaped_literals, fields)
             ]
         )
-        return self._highlight(merged).replace(
-            "\n", f"\n{self.YELLOW}#... {self.WHITE}"
+        return (
+            self._highlight(merged)
+            .strip()
+            .replace("\n", f"{self.YELLOW}\n#... {self.RESET}")
         )
 
 
@@ -196,7 +198,8 @@ class Boost:
             cmd_wrapped = f"{ansi.ALT_BUFF}\n\n{calling_cmd}\n#{ansi.MAIN_BUFF}"
 
         return (
-            f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
+            # f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
+            "# > "
             f"{ansi.colorize_cmd(core_cmd)}"
             f"{cmd_wrapped}"
         )
