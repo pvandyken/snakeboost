@@ -11,8 +11,12 @@ import attr
 import more_itertools as itx
 import pygments as pyg
 from colorama import Fore
-from pygments.formatters import Terminal256Formatter
-from pygments.lexers import BashLexor
+from pygments.formatters.terminal import TerminalFormatter
+from pygments.formatters.terminal256 import (
+    Terminal256Formatter,
+    TerminalTrueColorFormatter,
+)
+from pygments.lexers.shell import BashLexer
 
 import snakeboost.bash as sh
 from snakeboost.bash.globals import Globals
@@ -29,6 +33,7 @@ class _TestLogger:
     stream_handler = Handler()
 
 
+# pylint: disable=invalid-name
 @attr.frozen
 class _ANSI:
     colorize: bool = True
@@ -56,6 +61,19 @@ class _ANSI:
     def MAIN_BUFF(self):
         return self._f("\033[?1049l")
 
+    @property
+    def _formatter(self):
+        if os.environ.get("COLORTERM", "") in ("truecolor", "24bit"):
+            return TerminalTrueColorFormatter(style="material")
+        if "256" in os.environ.get("TERM", ""):
+            return Terminal256Formatter(style="material")
+        return TerminalFormatter()
+
+    def _highlight(self, text: str):
+        if self.colorize:
+            return pyg.highlight(text, BashLexer(), self._formatter)
+        return text
+
     def colorize_cmd(self, cmd: str):
         literals, *field_components = zip(*string.Formatter().parse(cmd))
         fields = [
@@ -63,23 +81,17 @@ class _ANSI:
             for field_component in zip(*field_components)
         ]
         escaped_literals = [
-            literal.replace("{", "{{")
-            .replace("}", "}}")
-            .replace("\n", f"\n{self.YELLOW}#...{self.WHITE}")
-            if literal
-            else None
+            literal.replace("{", "{{").replace("}", "}}") if literal else None
             for literal in literals
         ]
-        return (
-            self.RESET
-            + "".join(
-                [
-                    f"{literal or ''}"
-                    + (f"{self.YELLOW}{field}{self.WHITE}" if field else "")
-                    for literal, field in zip(escaped_literals, fields)
-                ]
-            )
-            + self.RESET
+        merged = "".join(
+            [
+                f"{literal or ''}" + (f"{field}" if field else "")
+                for literal, field in zip(escaped_literals, fields)
+            ]
+        )
+        return self._highlight(merged).replace(
+            "\n", f"\n{self.YELLOW}#... {self.WHITE}"
         )
 
 
@@ -184,7 +196,7 @@ class Boost:
             cmd_wrapped = f"{ansi.ALT_BUFF}\n\n{calling_cmd}\n#{ansi.MAIN_BUFF}"
 
         return (
-            f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n# > "
+            f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
             f"{ansi.colorize_cmd(core_cmd)}"
             f"{cmd_wrapped}"
         )
