@@ -117,7 +117,7 @@ def within_quotes(text: str, curr: int = 0) -> int:
         else:
             result = 0
 
-    tail = (double if double < single else single) + 1
+    tail = min(double, single) + 1
     if tail == len(text):
         return result
     return within_quotes(text[tail:], result)

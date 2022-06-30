@@ -81,15 +81,16 @@ class _ANSI:
             for field_component in zip(*field_components)
         ]
         escaped_literals = [
-            literal.replace("{", "{{").replace("}", "}}") if literal else None
+            literal.replace("{", "{{").replace("}", "}}") if literal else ""
             for literal in literals
         ]
-        merged = "".join(
-            [
-                f"{literal or ''}" + (f"'{field}'" if field else "")
-                for literal, field in zip(escaped_literals, fields)
-            ]
-        )
+        merged = "".join(_quote_variables(zip(escaped_literals, fields), context=[0]))
+        # merged = "".join(
+        #     [
+        #         f"{literal or ''}" + (f"'{field}'" if field else "")
+        #         for literal, field in zip(escaped_literals, fields)
+        #     ]
+        # )
         return (
             self._highlight(merged)
             .strip()
@@ -124,14 +125,18 @@ def _chmod_rwx(path: Union[Path, str]):
     os.chmod(path, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
 
 
-def _construct_script(components: Iterable[Tuple[str, Optional[str]]]):
+# pylint: disable=dangerous-default-value
+def _quote_variables(
+    components: Iterable[Tuple[Optional[str], Optional[str]]], context=[1]
+):
     quote_status = 0
     for literal, variable in components:
-        quote_status = within_quotes(literal, quote_status)
-        if quote_status > 0:
-            yield f"{literal}'{variable}'" if variable else literal
+        lit = literal or ""
+        quote_status = within_quotes(lit, quote_status)
+        if quote_status in context:
+            yield f"{lit}'{variable}'" if variable else lit
             continue
-        yield f"{literal}{variable}" if variable else literal
+        yield f"{lit}{variable}" if variable else lit
 
 
 def sh_strict():
@@ -174,7 +179,7 @@ class Boost:
         unique_fields = [*filter(None, itx.unique_everseen(fields))]
         field_subs = {field: f"${{{i + 1}}}" for i, field in enumerate(unique_fields)}
         script = "#!/bin/bash\n" + "".join(
-            _construct_script(
+            _quote_variables(
                 (literal, field_subs[field] if field in field_subs else None)
                 for literal, field in zip(cast(Tuple[str], literals), fields)
             )
@@ -198,8 +203,7 @@ class Boost:
             cmd_wrapped = f"{ansi.ALT_BUFF}\n\n{calling_cmd}\n#{ansi.MAIN_BUFF}"
 
         return (
-            # f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
-            "# > "
+            f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
             f"{ansi.colorize_cmd(core_cmd)}"
             f"{cmd_wrapped}"
         )
