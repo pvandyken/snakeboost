@@ -5,14 +5,82 @@ import os
 import stat
 import string
 from pathlib import Path
-from typing import Iterable, Optional, Tuple, Union, cast
+from typing import Any, Iterable, Optional, Tuple, Union, cast
 
 import attr
 import more_itertools as itx
+import pygments as pyg
+from colorama import Fore
+from pygments.formatters import Terminal256Formatter
+from pygments.lexers import BashLexor
 
+import snakeboost.bash as sh
 from snakeboost.bash.globals import Globals
 from snakeboost.bash.statement import ShBlock
+from snakeboost.script import Pyscript
+from snakeboost.tar import Tar
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
+
+
+class _TestLogger:
+    class Handler:
+        nocolor = False
+
+    stream_handler = Handler()
+
+
+@attr.frozen
+class _ANSI:
+    colorize: bool = True
+
+    def _f(self, arg: str):
+        return arg if self.colorize else ""
+
+    @property
+    def WHITE(self):
+        return self._f(Fore.WHITE)
+
+    @property
+    def YELLOW(self):
+        return self._f(Fore.YELLOW)
+
+    @property
+    def RESET(self):
+        return self._f(Fore.RESET)
+
+    @property
+    def ALT_BUFF(self):
+        return self._f("\033[?1049h")
+
+    @property
+    def MAIN_BUFF(self):
+        return self._f("\033[?1049l")
+
+    def colorize_cmd(self, cmd: str):
+        literals, *field_components = zip(*string.Formatter().parse(cmd))
+        fields = [
+            get_replacement_field(*field_component)
+            for field_component in zip(*field_components)
+        ]
+        escaped_literals = [
+            literal.replace("{", "{{")
+            .replace("}", "}}")
+            .replace("\n", f"\n{self.YELLOW}#...{self.WHITE}")
+            if literal
+            else None
+            for literal in literals
+        ]
+        return (
+            self.RESET
+            + "".join(
+                [
+                    f"{literal or ''}"
+                    + (f"{self.YELLOW}{field}{self.WHITE}" if field else "")
+                    for literal, field in zip(escaped_literals, fields)
+                ]
+            )
+            + self.RESET
+        )
 
 
 def _pipe(*funcs_and_cmd):
@@ -58,24 +126,6 @@ def sh_strict():
     return "set -euo pipefail; "
 
 
-def _colorize_cmd(cmd: str):
-    literals, *field_components = zip(*string.Formatter().parse(cmd))
-    fields = [
-        get_replacement_field(*field_component)
-        for field_component in zip(*field_components)
-    ]
-    escaped_literals = [
-        literal.replace("{", "{{").replace("}", "}}").replace("\n", "\n\033[0;33m#...\033[0;37m") if literal else None
-        for literal in literals
-    ]
-    return "\033[0m" + "".join(
-        [
-            f"{literal or ''}" + (f"\033[0;33m'{field}'\033[0;37m" if field else "")
-            for literal, field in zip(escaped_literals, fields)
-        ]
-    )
-
-
 def _parse_boost_args(args):
     *funcs, core_cmd = args
     if isinstance(core_cmd, str):
@@ -86,6 +136,7 @@ def _parse_boost_args(args):
 @attr.define
 class Boost:
     script_root: Path = attr.ib(converter=Path)
+    logger: Any
     debug: bool = False
     disable_script: bool = attr.ib(kw_only=True, default=False)
 
@@ -93,6 +144,8 @@ class Boost:
     def __call__(self, *funcs_and_cmd):
         """Pipe a value through a sequence of functions"""
         Globals.DEBUG = self.debug
+
+        ansi = _ANSI(colorize=not getattr(self.logger.stream_handler, "nocolor", False))
         funcs, core_cmd = _parse_boost_args(funcs_and_cmd)
         cmd = sh_strict() + _pipe(*funcs, core_cmd)
 
@@ -128,10 +181,52 @@ class Boost:
         if self.debug:
             cmd_wrapped = f"\n\n{calling_cmd}"
         else:
-            cmd_wrapped = f"\033[?1049h\n\n{calling_cmd}\n#\033[?1049l"
+            cmd_wrapped = f"{ansi.ALT_BUFF}\n\n{calling_cmd}\n#{ansi.MAIN_BUFF}"
 
         return (
             f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n# > "
-            f"{_colorize_cmd(core_cmd)}"
-            f"\033[0m{cmd_wrapped}"
+            f"{ansi.colorize_cmd(core_cmd)}"
+            f"{cmd_wrapped}"
         )
+
+
+if __name__ == "__main__":
+    rename_awk_expr = (
+        "number=substr($(NF), match($(NF), /[0-9]{{5}}/), 5)",
+        "split($(NF), parts, number)",
+        'printf "%s "output"/%s%05d%s\\n", $0, parts[1], number+offset, parts[2]',
+    )
+    print(
+        Boost(Path("/tmp"), _TestLogger, debug=True)(
+            Tar(Path("/tmp")).using(
+                inputs=["{input.data}", "input.atlas"],
+                outputs=["{output}"],
+            ),
+            (
+                tmpdir := sh.ShVar(
+                    "{resources.tmpdir}/reformat_clusters/{wildcards.subject}"
+                ),
+                sh.ShTry(
+                    vtp_dir := sh.ShVar(str(tmpdir) + "/vtp-tracts"),
+                    sh.mkdir(vtp_dir).p,
+                    sh.mv("{input}/tracts_left_hemisphere/*", vtp_dir),
+                    sh.find("{input}/tracts_right_hemisphere/ -type f")
+                    | sh.awk(*rename_awk_expr).F("/").v(offset="800", output=vtp_dir)
+                    | "xargs -L 1 mv",
+                    sh.find("{input}/tracts_commissural/ -type f")
+                    | sh.awk(*rename_awk_expr).F("/").v(offset="1600", output=vtp_dir)
+                    | "xargs -L 1 mv",
+                    Pyscript(".")(
+                        input={"input": vtp_dir},
+                        output={"output": str(tmpdir) + "/vtk-tracts"},
+                        script="snakeboost/boost.py",
+                    ),
+                    sh.find(str(tmpdir) + "/vtk-tracts -type f")
+                    | sh.awk('print $0 " {output}/"$(NF-1)".tck"').F("[./]")
+                    | "xargs -L 1 tckconvert",
+                )
+                .catch(f"rm {tmpdir} -rf", "false")
+                .els(f"rm {tmpdir} -rf"),
+            ),
+        )
+    )
