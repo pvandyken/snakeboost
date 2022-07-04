@@ -21,6 +21,7 @@ from pygments.lexers.shell import BashLexer
 import snakeboost.bash as sh
 from snakeboost.bash.globals import Globals
 from snakeboost.bash.statement import ShBlock
+from snakeboost.env import Env
 from snakeboost.script import Pyscript
 from snakeboost.tar import Tar
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
@@ -202,6 +203,8 @@ class Boost:
         else:
             cmd_wrapped = f"{ansi.ALT_BUFF}\n\n{calling_cmd}\n#{ansi.MAIN_BUFF}"
 
+        for func in funcs:
+            core_cmd = func.log_format(core_cmd)
         return (
             f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
             f"{ansi.colorize_cmd(core_cmd)}"
@@ -215,18 +218,19 @@ if __name__ == "__main__":
         "split($(NF), parts, number)",
         'printf "%s "output"/%s%05d%s\\n", $0, parts[1], number+offset, parts[2]',
     )
+    env = Env()
     print(
         Boost(Path("/tmp"), _TestLogger, debug=True)(
             Tar(Path("/tmp")).using(
                 inputs=["{input.data}", "input.atlas"],
                 outputs=["{output}"],
             ),
+            env.tracked(
+                tmpdir="{resources.tmpdir}/reformat_clusters/{wildcards.subject}"
+            ),
             (
-                tmpdir := sh.ShVar(
-                    "{resources.tmpdir}/reformat_clusters/{wildcards.subject}"
-                ),
                 sh.ShTry(
-                    vtp_dir := sh.ShVar(str(tmpdir) + "/vtp-tracts"),
+                    vtp_dir := sh.ShVar("{sb_env.tmpdir}/vtp-tracts"),
                     sh.mkdir(vtp_dir).p,
                     sh.mv("{input}/tracts_left_hemisphere/*", vtp_dir),
                     sh.find("{input}/tracts_right_hemisphere/ -type f")
@@ -237,15 +241,15 @@ if __name__ == "__main__":
                     | "xargs -L 1 mv",
                     Pyscript(".")(
                         input={"input": vtp_dir},
-                        output={"output": str(tmpdir) + "/vtk-tracts"},
+                        output={"output": "{sb_env.tmpdir}/vtk-tracts"},
                         script="snakeboost/boost.py",
                     ),
-                    sh.find(str(tmpdir) + "/vtk-tracts -type f")
+                    sh.find("{sb_env.tmpdir}/vtk-tracts -type f")
                     | sh.awk('print $0 " {output}/"$(NF-1)".tck"').F("[./]")
                     | "xargs -L 1 tckconvert",
                 )
-                .catch(f"rm {tmpdir} -rf", "false")
-                .els(f"rm {tmpdir} -rf"),
+                .catch("rm {sb_env.tmpdir} -rf", "false")
+                .els("rm {sb_env.tmpdir} -rf"),
             ),
         )
     )

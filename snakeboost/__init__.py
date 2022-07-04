@@ -3,7 +3,7 @@ import sys
 
 from colorama import Fore
 
-__submodules__ = ["pipenv", "xvfb", "script", "boost", "tar"]
+__submodules__ = ["pipenv", "xvfb", "script", "boost", "tar", "env"]
 
 __ignore__ = ["T"]
 
@@ -33,11 +33,15 @@ from snakeboost.boost import (
 from snakeboost.tar import (
     Tar,
 )
+from snakeboost.env import (
+    Env,
+)
 
 __all__ = [
     "ArgAlias",
     "ArgAliasGroup",
     "Boost",
+    "Env",
     "ParseError",
     "PipEnv",
     "Pyscript",

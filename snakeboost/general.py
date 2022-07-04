@@ -1,14 +1,23 @@
+# pylint: disable=missing-module-docstring
 from __future__ import absolute_import
 
+import abc
 import itertools as it
 import string
-from typing import Callable, Dict, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, Iterable, Optional, Sequence, Set, Tuple, Union
 
 import attr
 
 from snakeboost.bash import ShEntity, ShVar
 from snakeboost.bash.statement import ShBlock, ShTry
 from snakeboost.utils import get_replacement_field
+
+
+# pylint: disable=missing-docstring
+class Enhancer(abc.ABC):
+    # pylint: disable=no-self-use
+    def log_format(self, script: str):
+        return script
 
 
 # pylint: disable=missing-class-docstring
@@ -19,7 +28,14 @@ class BashWrapper:
 
     @property
     def assignments(self):
-        return tuple(comp.assignments for comp in self.comps)
+        return tuple(
+            it.chain.from_iterable(
+                comp.assignments
+                if isinstance(comp.assignments, Iterable)
+                else [comp.assignments]
+                for comp in self.comps
+            )
+        )
 
     @property
     def before(self):
@@ -88,7 +104,7 @@ class BashWrapper:
 # pylint: disable=missing-class-docstring
 @attr.define
 class ScriptComp:
-    assignments: Optional[ShVar] = None
+    assignments: Union[ShVar, Iterable[ShVar], None] = None
     before: ShEntity = ""
     inner_mod: Optional[Callable[[str], str]] = None
     outer_mod: Optional[Callable[[str], str]] = None

@@ -6,6 +6,7 @@ from typing import Iterable, List, Optional, Union
 
 from snakeboost.bash.cmd import echo, mkdir
 from snakeboost.bash.statement import Flock, ShBlock, ShIf, ShTry
+from snakeboost.general import Enhancer
 from snakeboost.utils import get_hash
 
 __all__ = ["PipEnv"]
@@ -21,7 +22,7 @@ def _get_file_contents(paths: Iterable[Path]):
             yield file.read()
 
 
-class PipEnv:
+class PipEnv(Enhancer):
     """Functions to handle the creation of pip virtualenvs for Snakemake rules
 
     Creates a virtualenv in the directory of choice intended for use in Snakemake rules.
