@@ -11,18 +11,18 @@ from snakeboost.bash.abstract import ShCmd, ShStatement
 from snakeboost.bash.globals import Globals
 
 
-def _var_names():
-    prefix_generator = _var_names()
-    prefix = ""
+def _var_names(prefix=""):
+    parent_generator = _var_names()
+    parent = ""
     for i, l in enumerate(it.chain.from_iterable(it.repeat(ascii_lowercase))):
         if i > 0 and i % len(ascii_lowercase) == 0:
             # pylint: disable=stop-iteration-return
-            prefix = next(prefix_generator)
-        yield prefix + l
+            parent = next(parent_generator)
+        yield prefix + parent + l
 
 
 class ShVar:
-    name_generator = _var_names()
+    name_generator = _var_names(prefix="__sb_")
     active_names = set()
 
     def __init__(
