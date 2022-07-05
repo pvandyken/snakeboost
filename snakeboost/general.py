@@ -77,9 +77,9 @@ class BashWrapper:
         )
 
     def format_script(self, script: str):
-        def substitute():
+        def substitute(cmd: str):
             used: Set[str] = set()
-            for literal, f_name, *f_parts in string.Formatter().parse(script):
+            for literal, f_name, *f_parts in string.Formatter().parse(cmd):
                 escaped = literal.replace("{", "{{").replace("}", "}}")
                 if f_name in self.subs:
                     yield f"{escaped}{self.subs[f_name]}"
@@ -89,7 +89,7 @@ class BashWrapper:
             if len(used - set(self.subs)):
                 raise Exception()
 
-        script = "".join(substitute())
+        script = "".join(substitute(script))
         for mod in filter(None, self.inner_mods):
             script = mod(script)
         block = ShBlock(

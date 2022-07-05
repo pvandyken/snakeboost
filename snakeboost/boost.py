@@ -87,12 +87,6 @@ class _ANSI:
             for literal in literals
         ]
         merged = "".join(_quote_variables(zip(escaped_literals, fields), context=[0]))
-        # merged = "".join(
-        #     [
-        #         f"{literal or ''}" + (f"'{field}'" if field else "")
-        #         for literal, field in zip(escaped_literals, fields)
-        #     ]
-        # )
         return (
             self._highlight(merged)
             .strip()
@@ -233,10 +227,12 @@ if __name__ == "__main__":
             env.tracked(
                 tmpdir="{resources.tmpdir}/reformat_clusters/{wildcards.subject}"
             ),
-            env.untracked(foo="bar"),
+            env.untracked(
+                foo="bar",
+            ),
             (
+                vtp_dir := sh.ShVar("{sb_env.tmpdir}/vtp-tracts"),
                 sh.ShTry(
-                    vtp_dir := sh.ShVar("{sb_env.tmpdir}/vtp-tracts"),
                     sh.mkdir(vtp_dir).p,
                     sh.mv("{input}/tracts_left_hemisphere/*", vtp_dir),
                     sh.find("{input}/tracts_right_hemisphere/ -type f")
