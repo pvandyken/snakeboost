@@ -19,6 +19,11 @@ class Enhancer(abc.ABC):
     def log_format(self, script: str):
         return script
 
+    @property
+    @abc.abstractmethod
+    def hash(self) -> str:
+        ...
+
 
 # pylint: disable=missing-class-docstring
 @attr.frozen

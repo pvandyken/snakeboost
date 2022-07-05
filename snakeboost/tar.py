@@ -10,7 +10,7 @@ from snakeboost.bash import Flock, ShBlock, ShIf, ShVar
 from snakeboost.bash.cmd import echo, ls, mkdir
 from snakeboost.bash.statement import subsh
 from snakeboost.general import BashWrapper, Enhancer, ScriptComp
-from snakeboost.utils import hash_path, lockfile, rm_if_exists
+from snakeboost.utils import get_hash, hash_path, lockfile, rm_if_exists
 
 __all__ = ["Tar"]
 
@@ -59,6 +59,23 @@ class Tar(Enhancer):
     outputs: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
     modify: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
     cache_outputs: Optional[bool] = None
+
+    @property
+    def hash(self) -> str:
+        return get_hash(
+            "".join(
+                [
+                    self._hash_list(self.inputs or []),
+                    self._hash_list(self.mut_inputs or []),
+                    self._hash_list(self.outputs or []),
+                    self._hash_list(self.modify or []),
+                ]
+            )
+        )
+
+    @staticmethod
+    def _hash_list(_list: List[str]):
+        return get_hash(str(sorted(_list)))
 
     @property
     def root(self):

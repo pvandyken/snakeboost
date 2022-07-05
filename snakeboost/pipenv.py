@@ -22,6 +22,7 @@ def _get_file_contents(paths: Iterable[Path]):
             yield file.read()
 
 
+# pylint: disable=too-many-instance-attributes
 class PipEnv(Enhancer):
     """Functions to handle the creation of pip virtualenvs for Snakemake rules
 
@@ -66,20 +67,22 @@ class PipEnv(Enhancer):
             if requirements
             else []
         )
-
-        self._dir = (
-            Path(root)
-            / "__snakemake_venvs__"
-            / get_hash(
-                str(sorted(*it.chain(filter(None, [packages, requirement_contents]))))
-            )
+        self._hash = get_hash(
+            str(sorted(*it.chain(filter(None, [packages, requirement_contents]))))
         )
+
+        self._dir = Path(root) / "__snakemake_venvs__" / self._hash
+
         self.venv = self._dir / "venv"
         self.bin = self.venv / "bin"
         self.python_path = self.venv / "bin" / "python"
         self._flags = flags
         self._packages = " ".join(packages) if packages else ""
         self._requirements = "-r " + " -r ".join(requirements) if requirements else ""
+
+    @property
+    def hash(self) -> str:
+        return self._hash
 
     @property
     def get_venv(self):

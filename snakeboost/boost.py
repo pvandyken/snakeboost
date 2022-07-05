@@ -22,6 +22,7 @@ import snakeboost.bash as sh
 from snakeboost.bash.globals import Globals
 from snakeboost.bash.statement import ShBlock
 from snakeboost.env import Env
+from snakeboost.general import Enhancer
 from snakeboost.script import Pyscript
 from snakeboost.tar import Tar
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
@@ -153,6 +154,10 @@ def _parse_boost_args(args):
     return funcs, ShBlock(*core_cmd, wrap=False).to_str()
 
 
+def _enhancer_hashes(funcs: Iterable[Enhancer]):
+    return get_hash("".join(sorted([func.hash for func in funcs])))
+
+
 @attr.define
 class Boost:
     script_root: Path = attr.ib(converter=Path)
@@ -188,7 +193,7 @@ class Boost:
 
         script_root = self.script_root / "__sb_scripts__"
         script_root.mkdir(exist_ok=True, parents=True)
-        script_path = script_root / get_hash(script)
+        script_path = script_root / get_hash(_enhancer_hashes(funcs) + core_cmd)
         if not script_path.exists():
             with (script_path).open("w") as f:
                 f.write(script)
@@ -228,6 +233,7 @@ if __name__ == "__main__":
             env.tracked(
                 tmpdir="{resources.tmpdir}/reformat_clusters/{wildcards.subject}"
             ),
+            env.untracked(foo="bar"),
             (
                 sh.ShTry(
                     vtp_dir := sh.ShVar("{sb_env.tmpdir}/vtp-tracts"),

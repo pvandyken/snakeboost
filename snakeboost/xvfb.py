@@ -14,6 +14,10 @@ class XvfbRun(Enhancer):
     xvfb-run is only used if ``$DISPLAY`` is not set
     """
 
+    @property
+    def hash(self):
+        return ""
+
     def __call__(self, cmd: str):
         """Start a virtual x11 server on compute clusters
 

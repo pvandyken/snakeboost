@@ -46,6 +46,10 @@ class Datalad(Enhancer):
     dataset_root: Path = attr.ib(converter=Path)
     _msg: str = ""
 
+    @property
+    def hash(self) -> str:
+        return ""
+
     def using(self, msg: str = None, dataset_root: Path = None):
         """Set message
 

@@ -6,8 +6,6 @@ from collections import UserDict
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
-from snakeboost.general import Enhancer
-
 
 def _mapping(arg: str, values: Iterable[str]):
     return " ".join([f"{v}={{{arg}.{v}}}" for v in values])
@@ -34,7 +32,7 @@ def _get_arg(arg: str, value: Optional[PyscriptParam]):
 
 # pylint: disable=redefined-builtin, attribute-defined-outside-init
 # pylint: disable=too-many-instance-attributes
-class Pyscript(Enhancer):
+class Pyscript:
     """Functions to run python scripts
 
     Runs python scripts similarly to the script directive in Snakemake, but can be used
