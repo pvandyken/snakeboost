@@ -142,6 +142,8 @@ def sh_strict():
 
 
 def _parse_boost_args(args):
+    if all(isinstance(arg, str) for arg in args):
+        return tuple(), ShBlock(*args, wrap=False).to_str()
     *funcs, core_cmd = args
     if isinstance(core_cmd, str):
         return funcs, ShBlock(core_cmd, wrap=False).to_str()
