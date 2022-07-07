@@ -6,7 +6,6 @@ from typing import Iterable, List, Optional, Union
 
 from snakeboost.bash.cmd import echo, mkdir
 from snakeboost.bash.statement import Flock, ShBlock, ShIf, ShTry
-from snakeboost.general import Enhancer
 from snakeboost.utils import get_hash
 
 __all__ = ["PipEnv"]
@@ -23,7 +22,7 @@ def _get_file_contents(paths: Iterable[Path]):
 
 
 # pylint: disable=too-many-instance-attributes
-class PipEnv(Enhancer):
+class PipEnv:
     """Functions to handle the creation of pip virtualenvs for Snakemake rules
 
     Creates a virtualenv in the directory of choice intended for use in Snakemake rules.
@@ -81,10 +80,6 @@ class PipEnv(Enhancer):
         self._requirements = "-r " + " -r ".join(requirements) if requirements else ""
 
     @property
-    def hash(self) -> str:
-        return self._hash
-
-    @property
     def get_venv(self):
         """Script to check for venv, installing if necessary
 
@@ -128,7 +123,7 @@ class PipEnv(Enhancer):
         ).to_str()
         # fmt: on
 
-    def python(self, cmd: str):
+    def python(self, cmd: str, *, signature: bool = False):
         """Ensure existance of venv then run python command
 
         Prepends the path of the python executable to the shell script. This can be used
@@ -145,9 +140,11 @@ class PipEnv(Enhancer):
         Returns:
             str: Modified shell script
         """
+        if signature:
+            return self._hash
         return f"{self.get_venv} && {self.python_path} {cmd}"
 
-    def script(self, cmd: str):
+    def script(self, cmd: str, *, signature: bool = False):
         """Ensure existance of venv then run python script
 
         This appends the path of the venv /bin directory to the shell script. The very
@@ -164,10 +161,12 @@ class PipEnv(Enhancer):
         Returns:
             str: Modified shell script
         """
+        if signature:
+            return self._hash
         stripped = cmd.strip()
         return self.make_venv(f"{self.venv}/bin/{stripped}")
 
-    def make_venv(self, cmd: str):
+    def make_venv(self, cmd: str, *, signature: bool = False):
         """Ensure of existence of venv and run any arbitrary command
 
         Parameters:
@@ -177,6 +176,8 @@ class PipEnv(Enhancer):
         Returns:
             str: Modified shell script
         """
+        if signature:
+            return self._hash
         return ShBlock(self.get_venv, cmd).to_str()
 
 

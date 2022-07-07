@@ -5,7 +5,7 @@ import os
 import stat
 import string
 from pathlib import Path
-from typing import Any, Iterable, Optional, Tuple, Union, cast
+from typing import Any, Callable, Iterable, Optional, Tuple, Union, cast
 
 import attr
 import more_itertools as itx
@@ -22,7 +22,6 @@ import snakeboost.bash as sh
 from snakeboost.bash.globals import Globals
 from snakeboost.bash.statement import ShBlock
 from snakeboost.env import Env
-from snakeboost.general import Enhancer
 from snakeboost.script import Pyscript
 from snakeboost.tar import Tar
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
@@ -150,8 +149,14 @@ def _parse_boost_args(args):
     return funcs, ShBlock(*core_cmd, wrap=False).to_str()
 
 
-def _enhancer_hashes(funcs: Iterable[Enhancer]):
-    return get_hash("".join(sorted([func.hash for func in funcs])))
+def _enhancer_hashes(funcs: Iterable[Callable[..., Any]]):
+    hashes: list[str] = []
+    for func in funcs:
+        try:
+            hashes.append(func("", signature=True))
+        except TypeError:
+            pass
+    return get_hash("".join(sorted(hashes)))
 
 
 @attr.define
@@ -168,6 +173,10 @@ class Boost:
 
         ansi = _ANSI(colorize=not getattr(self.logger.stream_handler, "nocolor", False))
         funcs, core_cmd = _parse_boost_args(funcs_and_cmd)
+
+        # No processing needed if no funcs provided
+        if not funcs:
+            return core_cmd
         cmd = sh_strict() + _pipe(*funcs, core_cmd)
 
         if self.disable_script:
@@ -205,7 +214,10 @@ class Boost:
             cmd_wrapped = f"{ansi.ALT_BUFF}\n\n{calling_cmd}\n#{ansi.MAIN_BUFF}"
 
         for func in funcs:
-            core_cmd = func.log_format(core_cmd)
+            try:
+                core_cmd = func(core_cmd, log=True)
+            except TypeError:
+                pass
         return (
             f"# Snakeboost enhanced: to view script, set Boost(debug=True)\n## > "
             f"{ansi.colorize_cmd(core_cmd)}"
@@ -223,7 +235,7 @@ if __name__ == "__main__":
     print(
         Boost(Path("/tmp"), _TestLogger, debug=True)(
             Tar(Path("/tmp")).using(
-                inputs=["{input.data}", "input.atlas"],
+                inputs=["input.atlas", "{input.data}"],
                 outputs=["{output}"],
             ),
             env.tracked(

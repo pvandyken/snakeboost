@@ -7,13 +7,13 @@ from typing import Dict
 import attrs
 
 from snakeboost.bash.statement import ShEntity, ShVar
-from snakeboost.general import BashWrapper, Enhancer, ScriptComp
+from snakeboost.general import BashWrapper, ScriptComp
 from snakeboost.utils import get_hash
 
 
 # pylint: disable=missing-class-docstring
 @attrs.frozen
-class Env(Enhancer):
+class Env:
     _tracked: Dict[str, ShEntity] = {}
     _untracked: Dict[str, ShEntity] = {}
     _export: bool = False
@@ -23,9 +23,6 @@ class Env(Enhancer):
 
     def untracked(self, **items: ShEntity):
         return attrs.evolve(self, untracked=items)
-
-    def log_format(self, script: str):
-        return self(script)
 
     @property
     def export(self):
@@ -38,7 +35,12 @@ class Env(Enhancer):
             return get_hash("".join([key + str(val) for key, val in sort]))
         return ""
 
-    def __call__(self, script: str):
+    def __call__(self, script: str, *, signature: bool = False, log: bool = False):
+        if signature:
+            return self.hash
+        if log:
+            return self(script)
+
         envvars = {
             name: ShVar(value=val, name=name, export=self._export)
             for name, val in it.chain(self._tracked.items(), self._untracked.items())

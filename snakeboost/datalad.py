@@ -13,7 +13,6 @@ import more_itertools as itx
 
 from snakeboost.bash.cmd import echo
 from snakeboost.bash.statement import Flock, ShBlock, ShFor, ShIf, ShVar, subsh
-from snakeboost.general import Enhancer
 from snakeboost.utils import get_replacement_field, resolve, split
 
 __all__ = ["Datalad"]
@@ -42,13 +41,9 @@ CLI_FLAGS = {"inputs": "-i", "outputs": "-o"}
 
 
 @attr.define
-class Datalad(Enhancer):
+class Datalad:
     dataset_root: Path = attr.ib(converter=Path)
     _msg: str = ""
-
-    @property
-    def hash(self) -> str:
-        return ""
 
     def using(self, msg: str = None, dataset_root: Path = None):
         """Set message

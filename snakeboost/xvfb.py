@@ -2,21 +2,16 @@ from __future__ import absolute_import
 
 import attr
 
-from snakeboost.general import Enhancer
 from snakeboost.utils import quote_escape
 
 
 # pylint: disable=too-few-public-methods
 @attr.frozen
-class XvfbRun(Enhancer):
+class XvfbRun:
     """Functions to enable virtual x11 servers on compute clusters
 
     xvfb-run is only used if ``$DISPLAY`` is not set
     """
-
-    @property
-    def hash(self):
-        return ""
 
     def __call__(self, cmd: str):
         """Start a virtual x11 server on compute clusters

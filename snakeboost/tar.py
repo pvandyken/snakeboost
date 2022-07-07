@@ -9,7 +9,7 @@ import attr
 from snakeboost.bash import Flock, ShBlock, ShIf, ShVar
 from snakeboost.bash.cmd import echo, ls, mkdir
 from snakeboost.bash.statement import subsh
-from snakeboost.general import BashWrapper, Enhancer, ScriptComp
+from snakeboost.general import BashWrapper, ScriptComp
 from snakeboost.utils import get_hash, hash_path, lockfile, rm_if_exists
 
 __all__ = ["Tar"]
@@ -41,7 +41,7 @@ def _get_tar_wrapper(
 
 
 @attr.frozen
-class Tar(Enhancer):
+class Tar:
     """Functions to handle manipulation of .tar files in Snakemake
 
     Supports the creation of new tarfile outputs, the modification of existing tarfiles,
@@ -159,7 +159,7 @@ class Tar(Enhancer):
             self._root, inputs, mut_inputs, outputs, modify, cache_outputs
         )
 
-    def __call__(self, cmd: str):
+    def __call__(self, cmd: str, *, signature: bool = False):
         """Modify shell script to manipulate .tar files as directories
 
         Parameters:
@@ -169,6 +169,8 @@ class Tar(Enhancer):
         Returns:
             str: Modified shell script
         """
+        if signature:
+            return self.hash
         return BashWrapper.merge(
             [
                 _get_tar_wrapper(
