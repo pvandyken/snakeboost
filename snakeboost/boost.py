@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import os
+import re
 import stat
 import string
 from pathlib import Path
@@ -22,8 +23,6 @@ import snakeboost.bash as sh
 from snakeboost.bash.globals import Globals
 from snakeboost.bash.statement import ShBlock
 from snakeboost.env import Env
-from snakeboost.script import Pyscript
-from snakeboost.tar import Tar
 from snakeboost.utils import get_hash, get_replacement_field, within_quotes
 
 
@@ -86,7 +85,35 @@ class _ANSI:
             for literal in literals
         ]
         merged = "".join(_quote_variables(zip(escaped_literals, fields), context=[0]))
-        return (
+
+        # Regex adapted from ansi-regex npm package
+        # https://www.npmjs.com/package/ansi-regex
+        ansi_regex = r"""
+            (?:
+                [\u001B\u009B][\[\]()\#;?]*
+                (?:
+                    (?:
+                        (?:
+                            (?:;[-a-zA-Z\d\/\#&.:=?%@~_]+)* |
+                            [a-zA-Z\d]+ (?:;[-a-zA-Z\d\/\#&.:=?%@~_]*)*
+                        )?
+                        \u0007
+                    ) |
+                    (?:
+                        (?:\d{1,4}(?:;\d{0,4})*)?
+                        [\dA-PR-TZcf-nq-uy=><~]
+
+                    )
+                )
+            )
+        """
+        brace_pair = re.compile(rf"([\{{\}}]){ansi_regex}+\1", re.VERBOSE)
+
+        def smush_braces(x: str):
+            # Remove ansi codes from within braces
+            return re.sub(brace_pair, r"\1\1", x, count=0)
+
+        return smush_braces(
             self._highlight(merged)
             .strip()
             .replace("\n", f"{self.YELLOW}\n#... {self.RESET}")
@@ -232,40 +259,22 @@ if __name__ == "__main__":
         'printf "%s "output"/%s%05d%s\\n", $0, parts[1], number+offset, parts[2]',
     )
     env = Env()
-    print(
-        Boost(Path("/tmp"), _TestLogger, debug=True)(
-            Tar(Path("/tmp")).using(
-                inputs=["input.atlas", "{input.data}"],
-                outputs=["{output}"],
-            ),
-            env.tracked(
-                tmpdir="{resources.tmpdir}/reformat_clusters/{wildcards.subject}"
-            ),
-            env.untracked(
-                foo="bar",
-            ),
-            (
-                vtp_dir := sh.ShVar("{sb_env.tmpdir}/vtp-tracts"),
-                sh.ShTry(
-                    sh.mkdir(vtp_dir).p,
-                    sh.mv("{input}/tracts_left_hemisphere/*", vtp_dir),
-                    sh.find("{input}/tracts_right_hemisphere/ -type f")
-                    | sh.awk(*rename_awk_expr).F("/").v(offset="800", output=vtp_dir)
-                    | "xargs -L 1 mv",
-                    sh.find("{input}/tracts_commissural/ -type f")
-                    | sh.awk(*rename_awk_expr).F("/").v(offset="1600", output=vtp_dir)
-                    | "xargs -L 1 mv",
-                    Pyscript(".")(
-                        input={"input": vtp_dir},
-                        output={"output": "{sb_env.tmpdir}/vtk-tracts"},
-                        script="snakeboost/boost.py",
-                    ),
-                    sh.find("{sb_env.tmpdir}/vtk-tracts -type f")
-                    | sh.awk('print $0 " {output}/"$(NF-1)".tck"').F("[./]")
-                    | "xargs -L 1 tckconvert",
-                )
-                .catch("rm {sb_env.tmpdir} -rf", "false")
-                .els("rm {sb_env.tmpdir} -rf"),
-            ),
-        )
+    s = Boost(Path("/tmp"), _TestLogger, debug=True)(
+        env.untracked(
+            # Get the hemisphere in lowercase
+            hemi=sh.echo("{wildcards}")
+            | sh.awk("print tolower($0)"),
+        ),
+        env.export.untracked(
+            SINGULARITYENV_SUBJECTS_DIR="foo",
+        ),
+        (
+            "declare -A structure",
+            "structure[l]=CORTEX_LEFT",
+            "structure[r]=CORTEX_RIGHT",
+            "mris_ca_label sub-{wildcards} {sb_env.hemi}h {input} {input} tmp.annot",
+            "mris_convert --annot tmp.annot {input} {output}",
+            "wb_command -set-structure {output} ${{structure[{sb_env.hemi}]}}",
+        ),
     )
+    print(s.format(input="foo", wildcards="foo", output="foo"))
