@@ -259,7 +259,8 @@ if __name__ == "__main__":
         'printf "%s "output"/%s%05d%s\\n", $0, parts[1], number+offset, parts[2]',
     )
     env = Env()
-    s = Boost(Path("/tmp"), _TestLogger, debug=True)(
+    Globals.DEBUG = False
+    s = Boost(Path("/tmp"), _TestLogger)(
         env.untracked(
             # Get the hemisphere in lowercase
             hemi=sh.echo("{wildcards}")
@@ -277,4 +278,4 @@ if __name__ == "__main__":
             "wb_command -set-structure {output} ${{structure[{sb_env.hemi}]}}",
         ),
     )
-    print(s.format(input="foo", wildcards="foo", output="foo"))
+    print(s)

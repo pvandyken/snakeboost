@@ -22,9 +22,9 @@ class ShSingleCmd(ShCmd):
         return ShPipe([self, other])
 
     def __str__(self):
-        flags = f"-{''.join(self.flags)}" if self.flags else ""
-        args = " ".join(self.args) if self.args else ""
-        return f"{self.cmd} {flags} {args} {self.expr}"
+        flags = f" -{''.join(self.flags)}" if self.flags else ""
+        args = " " + " ".join(self.args) if self.args else ""
+        return f"{self.cmd}{flags}{args} {self.expr}"
 
 
 class find(ShSingleCmd):

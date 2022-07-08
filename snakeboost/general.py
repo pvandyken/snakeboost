@@ -43,15 +43,15 @@ class BashWrapper:
 
     @property
     def success(self):
-        return tuple(comp.success for comp in self.comps)
+        return tuple(comp.success for comp in self.comps if comp.success)
 
     @property
     def failure(self):
-        return tuple(comp.failure for comp in self.comps)
+        return tuple(comp.failure for comp in self.comps if comp.failure)
 
     @property
     def complete(self):
-        return tuple(comp.after for comp in self.comps)
+        return tuple(comp.after for comp in self.comps if comp.after)
 
     @classmethod
     def merge(cls, wrappers: Sequence["BashWrapper"]):
@@ -79,13 +79,21 @@ class BashWrapper:
         script = "".join(substitute(script))
         for mod in filter(None, self.inner_mods):
             script = mod(script)
+        if self.failure or self.success or self.complete:
+            print(self.failure)
+            print(self.success)
+            print(self.complete)
+            script = (
+                ShTry(script)
+                .catch(*self.failure, "false")
+                .els(*self.success)
+                .finish(*self.complete)
+            ).to_str()
+
         block = ShBlock(
             *[var.set_statement for var in self.assignments if var],
             *self.before,
-            ShTry(script)
-            .catch(*self.failure, "false")
-            .els(*self.success)
-            .finish(*self.complete),
+            script,
             wrap=False,
         ).to_str()
         for mod in filter(None, self.outer_mods):
