@@ -80,9 +80,6 @@ class BashWrapper:
         for mod in filter(None, self.inner_mods):
             script = mod(script)
         if self.failure or self.success or self.complete:
-            print(self.failure)
-            print(self.success)
-            print(self.complete)
             script = (
                 ShTry(script)
                 .catch(*self.failure, "false")
