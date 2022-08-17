@@ -18,15 +18,9 @@ class Env:
     _untracked: Dict[str, ShEntity] = {}
     _export: bool = False
 
-    def tracked(self, **items: ShEntity):
-        return attrs.evolve(self, tracked=items)
-
-    def untracked(self, **items: ShEntity):
-        return attrs.evolve(self, untracked=items)
-
     @property
-    def export(self):
-        return attrs.evolve(self, export=True)
+    def export(self, **items: ShEntity):
+        return attrs.evolve(self, export=True, untracked=items)
 
     @property
     def hash(self) -> str:
