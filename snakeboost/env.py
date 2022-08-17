@@ -18,7 +18,6 @@ class Env:
     _untracked: Dict[str, ShEntity] = {}
     _export: bool = False
 
-    @property
     def export(self, **items: ShEntity):
         return attrs.evolve(self, export=True, untracked=items)
 
