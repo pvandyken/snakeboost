@@ -1,33 +1,29 @@
-from __future__ import absolute_import
+from __future__ import annotations
 
 import argparse
 import re
-from collections import UserDict
+import json
+import shlex
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing_extensions import TypeAlias
 
 
 def _mapping(arg: str, values: Iterable[str]):
-    return " ".join([f"{v}={{{arg}.{v}}}" for v in values])
+    return " ".join([f"--{arg} labelled {v} {{{arg}.{v}}}" for v in values])
 
 
-# pylint: disable=missing-class-docstring
-class ScriptDict(UserDict):
-    def cli_mapping(self, arg: str):
-        return _mapping(arg, self.keys())
-
-
-PyscriptParam = Union[List[str], ScriptDict, Dict[str, str]]
+PyscriptParam = Union[List[str], Dict[str, str]]
 
 
 def _get_arg(arg: str, value: Optional[PyscriptParam]):
     if value is None:
-        return f"--{arg} {{{arg}}}"
-    if isinstance(value, ScriptDict):
-        return f"--{arg} {value.cli_mapping(arg)}"
+        return f"--{arg} unlabelled {{{arg}}}"
     if isinstance(value, dict):
-        return f"--{arg} " + " ".join(f"{key}={v}" for key, v in value.items())
-    return f"--{arg} {_mapping(arg, value)}"
+        return " ".join([
+            f"--{arg} labelled {name} {v}" for name, v in value.items()
+        ])
+    return _mapping(arg, value)
 
 
 # pylint: disable=redefined-builtin, attribute-defined-outside-init
@@ -72,92 +68,7 @@ class Pyscript:
 
     def __init__(self, snakefile_dir: Union[str, Path]):
         self.snakefile_dir = Path(snakefile_dir)
-        self._input = None
-        self._output = None
-        self._params = None
-        self._resources = None
-        self._wildcards = None
-        self._log = None
 
-    def input(self, **kwargs):
-        """Set named inputs to the pyscript
-
-        Wrap this function around your rule inputs. Be sure to include a double
-        asterisk before the function to unpack the dict, e.g. `**pyscript.input(...)`
-
-        Returns:
-            Dict: Dict of name, value pairs. This should be unpacked using a double
-                asterisk
-        """
-        self._input = ScriptDict(**kwargs)
-        return kwargs
-
-    def output(self, **kwargs):
-        """Set named outputs to the pyscript
-
-        Wrap this function around your rule outputs. Be sure to include a double
-        asterisk before the function to unpack the dict, e.g. `**pyscript.output(...)`
-
-        Returns:
-            Dict: Dict of name, value pairs. This should be unpacked using a double
-                asterisk
-        """
-        self._output = ScriptDict(**kwargs)
-        return kwargs
-
-    def params(self, **kwargs):
-        """Set named params to the pyscript
-
-        Wrap this function around your rule params. Be sure to include a double
-        asterisk before the function to unpack the dict, e.g. `**pyscript.params(...)`
-
-        Returns:
-            Dict: Dict of name, value pairs. This should be unpacked using a double
-                asterisk
-        """
-        self._params = ScriptDict(**kwargs)
-        return kwargs
-
-    def resources(self, **kwargs):
-        """Set named resources to the pyscript
-
-        Wrap this function around your rule resources. Be sure to include a double
-        asterisk before the function to unpack the dict, e.g.
-        `**pyscript.resources(...)`
-
-        Returns:
-            Dict: Dict of name, value pairs. This should be unpacked using a double
-            asterisk
-        """
-        self._resources = ScriptDict(**kwargs)
-        return kwargs
-
-    def wildcards(self, **kwargs):
-        """Set named wildcards to the pyscript
-
-        Wrap this function around your rule wildcards. Be sure to include a double
-        asterisk before the function to unpack the dict, e.g.
-        `**pyscript.wildcards(...)`
-
-        Returns:
-            Dict: Dict of name, value pairs. This should be unpacked using a double
-                asterisk
-        """
-        self._wildcards = ScriptDict(**kwargs)
-        return kwargs
-
-    def log(self, **kwargs):
-        """Set named logs to the pyscript
-
-        Wrap this function around your rule logs. Be sure to include a double
-        asterisk before the function to unpack the dict, e.g. `**pyscript.log(...)`
-
-        Returns:
-            Dict: Dict of name, value pairs. This should be unpacked using a double
-                asterisk
-        """
-        self._log = ScriptDict(**kwargs)
-        return kwargs
 
     # pylint: disable=too-many-arguments
     def __call__(
@@ -218,17 +129,21 @@ class Pyscript:
             [
                 _get_arg(arg, value)
                 for arg, value in {
-                    "input": input if input else self._input,
-                    "output": output if output else self._output,
-                    "params": params if params else self._params,
-                    "wildcards": wildcards if wildcards else self._wildcards,
-                    "resources": resources if resources else self._resources,
-                    "log": log if log else self._log,
+                    "input": input,
+                    "output": output,
+                    "params": params,
+                    "wildcards": wildcards,
+                    "resources": resources,
+                    "log": log,
                 }.items()
             ]
         )
 
         return f"{executable} {resolved_script} {args} --threads {{threads}}"
+
+    @staticmethod
+    def serialize(expr: Any):
+        return shlex.quote(shlex.quote(json.dumps(expr)))
 
 
 class ParseError(Exception):
@@ -237,24 +152,31 @@ class ParseError(Exception):
 
 T = TypeVar("T")
 
-SnakemakeSequenceArg = Union[List[T], Dict[str, T]]
+SnakemakeSequenceArg: TypeAlias = "list[T] | dict[str, T | list[T]]"
 
 
-def _parse_snakemake_arg(
+def _parse_snakemake_labelled_arg(
     converter: Callable[[str], T], values: List[str]
-) -> SnakemakeSequenceArg[T]:
-    matches = [re.match(r"^([^\d\W]\w*)=(?!.*=)(.*)$", value) for value in values]
-    if not any(matches):
-        return [converter(v) for v in values if v]
-    if all(matches):
-        return {
-            str(m.group(1)): converter(m.group(2))  # type: ignore
-            for m in matches
-            if m.group(2)  # type: ignore
-        }
-    valuelist = "\n\t".join(values)
-    raise ParseError(f"Mixture of dict=args and listargs:\n\t{valuelist}")
+) -> tuple[str, T | list[T]]:
+    label = values[0]
+    split = shlex.split(values[1])
+    if len(split) == 1:
+        return label, converter(split[0])
+    return label, [converter(v) for v in split]
 
+
+def _parse_snakemake_arg(converter: Callable[[str], T], values: List[List[str]]) -> SnakemakeSequenceArg[T]:
+    if not values:
+        return []
+    argtypes, *_ = zip(*values)
+    argtype = set(argtypes)
+    if argtype not in ({"labelled"}, {"unlabelled"}):
+        raise ParseError("All args must be labelled or unlabelled")
+    argtype = argtype.pop()
+    if argtype == "unlabelled":
+        return [converter(v) for _set in values for v in shlex.split(_set[1])]
+    else:
+        return dict(_parse_snakemake_labelled_arg(converter, _set[1:]) for _set in values)
 
 # pylint: disable=redefined-builtin, too-many-arguments
 class SnakemakeArgs:
@@ -278,13 +200,13 @@ class SnakemakeArgs:
 
     def __init__(
         self,
-        input: List[str],
-        output: List[str],
-        params: List[str],
-        wildcards: List[str],
+        input: list[list[str]],
+        output: list[list[str]],
+        params: list[list[str]],
+        wildcards: list[list[str]],
         threads: str,
-        resources: List[str],
-        log: List[str],
+        resources: list[list[str]],
+        log: list[list[str]],
     ):
         self.input = _parse_snakemake_arg(Path, input)
         self.output = _parse_snakemake_arg(Path, output)
@@ -320,13 +242,13 @@ def snakemake_parser():
     Argument Parser
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", nargs="*", default=[])
-    parser.add_argument("--output", nargs="*", default=[])
-    parser.add_argument("--params", nargs="*", default=[])
-    parser.add_argument("--wildcards", nargs="*", default=[])
+    parser.add_argument("--input", nargs="*", action="append", default=[])
+    parser.add_argument("--output", nargs="*", action="append", default=[])
+    parser.add_argument("--params", nargs="*", action="append", default=[])
+    parser.add_argument("--wildcards", nargs="*", action="append", default=[])
     parser.add_argument("--threads", nargs="?", default=0, const=0)
-    parser.add_argument("--resources", nargs="*", default=[])
-    parser.add_argument("--log", nargs="*", default=[])
+    parser.add_argument("--resources", nargs="*", action="append", default=[])
+    parser.add_argument("--log", nargs="*", action="append", default=[])
     return parser
 
 
@@ -404,12 +326,12 @@ def _parse_arg_alias(namespace: argparse.Namespace, aliases: ArgAliasGroup):
         for name, alias in aliases.items():
             arg = _get_arg_from_namespace(namespace, get_alias(alias))
             if arg:
-                yield f"{name}={arg}"
+                yield ["labelled", name, arg]
     if isinstance(aliases, list):
         for alias in aliases:
             arg = _get_arg_from_namespace(namespace, get_alias(alias))
             if arg:
-                yield arg
+                yield ["unlabelled", arg]
 
 
 def _get_arg_from_namespace(namespace: argparse.Namespace, arg_name: str):
@@ -420,6 +342,6 @@ def _get_arg_from_namespace(namespace: argparse.Namespace, arg_name: str):
 if __name__ == "__main__":
     print(
         snakemake_args(
-            argv=["--pos-1", "me", "--input", "hello=world"], input={"dodge": "--pos-1"}
+            argv=["me", "--input", "unlabelled", "hello", "world"], input=['first']
         ).input
     )
