@@ -10,7 +10,7 @@ from typing_extensions import TypeAlias
 
 
 def _mapping(arg: str, values: Iterable[str]):
-    return " ".join([f"--{arg} labelled {v} {{{arg}.{v}}}" for v in values])
+    return " ".join([f"--{arg} labelled {v} \"{{{arg}.{v}}}\"" for v in values])
 
 
 PyscriptParam = Union[List[str], Dict[str, str]]
@@ -18,10 +18,10 @@ PyscriptParam = Union[List[str], Dict[str, str]]
 
 def _get_arg(arg: str, value: Optional[PyscriptParam]):
     if value is None:
-        return f"--{arg} unlabelled {{{arg}}}"
+        return f'--{arg} unlabelled "{{{arg}}}"'
     if isinstance(value, dict):
         return " ".join([
-            f"--{arg} labelled {name} {v}" for name, v in value.items()
+            f'--{arg} labelled {name} "{v}"' for name, v in value.items()
         ])
     return _mapping(arg, value)
 

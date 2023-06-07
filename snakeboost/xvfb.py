@@ -27,7 +27,8 @@ class XvfbRun:
         Returns:
             str: The modified shell script
         """
+        strict_cmd = "set -euo pipefail; " + cmd
         return (
-            f"echo '{quote_escape(cmd)}' | "
-            "$([ -z $DISPLAY ] && echo 'xvfb-run -a ') bash"
+            f"echo '{quote_escape(strict_cmd)}' | "
+            "$([ -z ${{DISPLAY:-}} ] && echo 'xvfb-run -a ') bash"
         )
