@@ -58,7 +58,7 @@ class Tar:
     mut_inputs: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
     outputs: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
     modify: Optional[List[str]] = attr.field(default=None, converter=_strip_braces)
-    cache_outputs: Optional[bool] = None
+    dereference: bool = False
 
     @property
     def hash(self) -> str:
@@ -92,7 +92,7 @@ class Tar:
         mut_inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         modify: Optional[List[str]] = None,
-        cache_outputs: Optional[bool] = None,
+        dereference: Optional[bool] = None,
     ):
         """Set inputs, outputs, and modifies for tarring, and other settings
 
@@ -104,7 +104,13 @@ class Tar:
         - **Inputs**: Extracts tar file inputs into a directory of your choice. The tar
           file is renamed (with a `.swap` suffix) and a symlink of the same name as the
           tarfile is made to the unpacked directory. Upon completion or failure of the
-          job, the symlink is automatically closed.
+          job, the symlink is automatically closed. Contents should not be modified; to
+          facilitate this, the file permissions within are changed to readonly. The
+          untarred folder is cached for future use, so modifications could propogate to
+          future work
+
+        - **Mutable Inputs**: Like inputs, but allow modification of the contents. The
+          tar file will be deleted upon completetion.
 
         - **Modify**: Opens the tarfile as with inputs. Upon successful completion of
           the job, the directory is packaged into a new tarfile, and the old tarfile is
@@ -119,44 +125,25 @@ class Tar:
         All files are g-zipped, so `.tar.gz` should be used as the extension for all
         inputs and outputs affected by the function
 
-        **Clearing mounts**
-
-        Tar typically does not delete any extracted tarfile contents. This way, if
-        multiple rules use the same input tarball, the file only needs to be unpackked
-        once. A problem occurs, however, when one of those rules modifies the unpacked
-        contents. Because the other rules read the same unpacked contents, the
-        modifications will be propogated to all following rules, which is likely not
-        desired. Thus, when closing an input tar file, Tar will check if the unpacked
-        contents have been modified in any way. If modifications are found, the mount
-        will be cleared, forcing future rules to unpack a fresh instance of the input
-        tarball.
-
-        Checking for modifications may take a considerable amount of time on very large
-        directories. In such cases, you may wish to manually set `clear_mounts`. True
-        will force the clearing of input tarball mounts, and False will disable
-        clearing. Note that you should never disable clearing to purposefully allow
-        modifications made by one rule to propogate to another rule, as this can lead to
-        inconsistent behaviour. Instead, save any modifications to a new tarball using
-        `output` or save your modifications to the existing tarball using `modify`.
-
         Parameters:
             inputs (List of str):
                 List of inputs. Use "{input.foo}" for wildcard paths
+            mut_inputs (List of str):
+                List of mutable inputs. Use "{input.foo}" for wildcard paths
             outputs (list of str):
                 List of outputs. Use "{output.foo}" for wildcard paths
             modify (list of str):
                 List of files to modify
-            clear_mounts: (optional bool):
-                Force the deletion or preservation of tar directories following rule
-                completion
+            dereference: (optional bool):
+                Use the -h flag when saving tar files to dereference all symlinks
 
         Returns:
             Tar: A fresh Tar instance with the update inputs, outputs, and modifies
         """
-        if self.cache_outputs is not None:
-            cache_outputs = self.cache_outputs
+        if dereference is None:
+            dereference = self.dereference
         return self.__class__(
-            self._root, inputs, mut_inputs, outputs, modify, cache_outputs
+            self._root, inputs, mut_inputs, outputs, modify, dereference
         )
 
     def __call__(self, cmd: str, *, signature: bool = False):
@@ -201,7 +188,7 @@ class Tar:
                     factory=lambda dest, mount: ScriptComp(
                         outer_mod=lambda s: self._modification_lock(dest, s),
                         before=_tar_output(mount),
-                        success=_save_tar(dest, mount),
+                        success=_save_tar(dest, mount, self.dereference),
                         failure=_rm_mount(mount),
                     ),
                     mount=self._public_mount,
@@ -211,7 +198,7 @@ class Tar:
                     factory=lambda tar, mount: ScriptComp(
                         before=_mount_tar(tar, mount),
                         outer_mod=lambda s: self._modification_lock(tar, s),
-                        success=_save_tar(tar, mount),
+                        success=_save_tar(tar, mount, self.dereference),
                         failure=_rm_mount(mount),
                     ),
                     mount=self._public_mount,
@@ -220,12 +207,13 @@ class Tar:
         ).format_script(cmd)
 
     def _public_mount(self, file: str):
-        return self.root / hash_path(file)
+        return self.root / hash_path(file) / Path(file).with_suffix("").name
 
-    def _private_mount(self, _: str):
+    def _private_mount(self, file: str):
+        filename = Path(file).with_suffix("").name
         return subsh(
             mkdir(self.root).p,
-            f"mktemp -d --tmpdir={self.root}",
+            f"printf '%s/{filename}' $(mktemp -d --tmpdir={self.root})",
         )
 
     def _modification_lock(self, tarfile: str, script: str):
@@ -250,10 +238,11 @@ def _tar_output(mount: ShVar):
     )
 
 
-def _save_tar(tarfile: str, mount: ShVar):
+def _save_tar(tarfile: str, mount: ShVar, dereference: bool):
+    flags = "-hczf" if dereference else "-czf"
     return (
         echo(f"Packing tar file: {tarfile}"),
-        f"tar -czf {mount}.tar.gz -C {mount} .",
+        f"tar {flags} {mount}.tar.gz -C {mount} .",
         f"mv {mount}.tar.gz {tarfile}.tmp",
         rm_if_exists(tarfile),
         f"mv {tarfile}.tmp {tarfile}",
