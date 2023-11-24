@@ -1,5 +1,6 @@
 # noqa: E131
 from __future__ import absolute_import
+import os
 
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Union
@@ -207,13 +208,17 @@ class Tar:
         ).format_script(cmd)
 
     def _public_mount(self, file: str):
-        return self.root / hash_path(file) / Path(file).with_suffix("").name
+        return (
+            os.path.join(self.root, hash_path(file))
+            + os.path.sep
+            + str(subsh(rf"basename {file} | sed -E 's/\.tar\.gz$//'"))
+        )
 
     def _private_mount(self, file: str):
-        filename = Path(file).with_suffix("").name
+        filename = subsh(rf"basename {file} | sed -E 's/\.tar\.gz$//'")
         return subsh(
             mkdir(self.root).p,
-            f"printf '%s/{filename}' $(mktemp -d --tmpdir={self.root})",
+            f'printf \'%s/%s\' "$(mktemp -d --tmpdir={self.root})" "{filename}"',
         )
 
     def _modification_lock(self, tarfile: str, script: str):
