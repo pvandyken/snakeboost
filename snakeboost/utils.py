@@ -33,7 +33,7 @@ def get_replacement_field(
 def lockfile(path: Union[Path, str], root: Path):
     loc = root / ".lock"
     loc.mkdir(exist_ok=True, parents=True)
-    return loc / get_hash(str(path))
+    return loc / hash_path(str(path))
 
 
 def silent_mv(src: str, dest: str):
